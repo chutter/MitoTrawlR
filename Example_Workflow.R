@@ -6,6 +6,8 @@
 devtools::install_github("chutter/PHYLOCAP")
 library(PHYLOCAP)
 
+devtools::install_github("chutter/MitoCap")
+library(MitoCap)
 
 ##########################################################################################################
 #Step 1: Preprocess
@@ -14,24 +16,46 @@ library(PHYLOCAP)
 work.dir = "/Volumes/Rodents/Mitogenomes"
 raw.dir = "/Users/chutter/Dropbox/Mammals/Philippine_Shrews_Raw_Data"
 sample.file = "file_rename.csv" #two column file with "File" and "Sample"
-fastp.path = "/Users/chutter/miniconda3/bin/fastp"
+fastp.path = "fastp"
+threads = 8
+memory = 80
 
+#Sets working directory (where all the stuff will be saved)
 setwd(work.dir)
 
-removeAdaptors(raw.reads = raw.dir,
-               file.rename = "file_rename.csv",
+####  Make program check
+
+
+### Example usage
+sample.spread = "/home/c111h652/scratch/MitoGenomes/Mitogenome_study.csv"
+read.dir = "/home/c111h652/scratch/MitoGenomes/raw-reads-frogs"
+dropbox.dir = "/Research/3_Sequence-Database/Raw-Reads"
+dropbox.tok = "/home/c111h652/dropbox-token.RDS"
+rdrop2::drop_auth(rdstoken = dropbox.tok)
+
+#Run download function
+dropboxDownload(sample.spreadsheet = sample.spread,
+                dropbox.directory = dropbox.dir,
+                out.directory = read.dir,
+                dropbox.token = NULL,
+                overwrite = TRUE)
+
+
+### Make file rename function, otherwise use read names
+## FILE RENAME
+
+removeAdaptors(raw.reads = read.dir,
                output.dir = "adaptor-removed-reads",
-               mode = c("directory"),
-               fastp.path = "/Users/chutter/miniconda3/bin/fastp",
-               threads = 4,
-               mem = 8,
+               mode = "directory",
+               fastp.path = fastp.path,
+               threads = threads,
+               mem = memory,
                resume = FALSE,
                overwrite = TRUE,
                quiet = TRUE)
 
 ## remove external contamination
 removeContamination(input.reads = "adaptor-removed-reads",
-                    file.rename = "file_rename.csv",
                     output.dir = "decontaminated-reads",
                     decontamination.path = "/Users/chutter/Dropbox/Research/0_Github/Contamination_Genomes",
                     mode = "directory",
@@ -41,20 +65,19 @@ removeContamination(input.reads = "adaptor-removed-reads",
                     bbmap.path = "/usr/local/bin/bbsplit.sh",
                     samtools.path = "/usr/local/bin/samtools",
                     bwa.path = "/usr/local/bin/bwa",
-                    threads = 6,
-                    mem = 8,
+                    threads = threads,
+                    mem = memory,
                     resume = FALSE,
                     overwrite = TRUE,
                     quiet = TRUE)
 
 #merge paired end reads
 mergePairedEndReads(input.reads = "decontaminated-reads",
-                    file.rename = "file_rename.csv",
                     output.dir = "pe-merged-reads",
                     mode = "directory",
-                    fastp.path = "/Users/chutter/miniconda3/bin/fastp",
-                    threads = 4,
-                    mem = 8,
+                    fastp.path = fastp.path,
+                    threads = threads,
+                    mem = memory,
                     resume = FALSE,
                     overwrite = TRUE,
                     quiet = TRUE)
