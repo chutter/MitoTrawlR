@@ -1,0 +1,22 @@
+Package: MitoCap
+Title: Package For extracting, assembling, annotating and aligning mitochondrial genomes from high-throughput sequencing data
+Version: 0.1.0
+Authors@R: 
+    person(given = "Carl",
+           family = "Hutter",
+           role = c("aut", "cre"),
+           email = "carl.hutter@gmail.com",
+           comment = c(ORCID = "0000-0001-6381-6339"))
+Description: This R package can process high-throughput sequence data from raw reads to alignments 
+  ready for analysis in popular phylogenetics software for mitochondrial genomes sequenced as by-catch.
+Depends: 
+        R (>= 3.5.1),
+        data.table (>= 1.10)
+License: `use_gpl3_license()`
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.0
+Imports:
+        ape (>= 5.0),
+        stringr (>= 1.4)
