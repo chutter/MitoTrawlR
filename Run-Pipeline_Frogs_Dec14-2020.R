@@ -8,29 +8,24 @@ library(PHYLOCAP)
 devtools::install_github("chutter/MitoCap")
 library(MitoCap)
 
+threads = 8
+memory = 80
+
 ##########################################################################################################
 #Step 1: Preprocess
 ##########################################################################################################
 
-work.dir = "/Volumes/Rodents/Mitogenomes"
-raw.dir = "/Users/chutter/Dropbox/Mammals/Philippine_Shrews_Raw_Data"
-sample.file = "file_rename.csv" #two column file with "File" and "Sample"
-fastp.path = "fastp"
-threads = 8
-memory = 80
-
-#Sets working directory (where all the stuff will be saved)
-setwd(work.dir)
-
-####  Make program check
-
-
 ### Example usage
-sample.spread = "/home/c111h652/scratch/MitoGenomes/Mitogenome_study.csv"
+work.dir = "/home/c111h652/scratch/MitoGenomes"
 read.dir = "/home/c111h652/scratch/MitoGenomes/raw-reads-frogs"
+decontamination.path = "/home/c111h652/scratch/Contamination_Genomes"
+sample.file = "/home/c111h652/scratch/MitoGenomes/Mitogenome_study.csv"
 dropbox.dir = "/Research/3_Sequence-Database/Raw-Reads"
 dropbox.tok = "/home/c111h652/dropbox-token.RDS"
 rdrop2::drop_auth(rdstoken = dropbox.tok)
+
+#Sets working directory (where all the stuff will be saved)
+setwd(work.dir)
 
 #Run download function
 dropboxDownload(sample.spreadsheet = sample.spread,
@@ -46,7 +41,7 @@ dropboxDownload(sample.spreadsheet = sample.spread,
 removeAdaptors(raw.reads = read.dir,
                output.dir = "adaptor-removed-reads",
                mode = "directory",
-               fastp.path = fastp.path,
+               fastp.path = "fastp",
                threads = threads,
                mem = memory,
                resume = FALSE,
@@ -56,7 +51,7 @@ removeAdaptors(raw.reads = read.dir,
 ## remove external contamination
 removeContamination(input.reads = "adaptor-removed-reads",
                     output.dir = "decontaminated-reads",
-                    decontamination.path = "/Users/chutter/Dropbox/Research/0_Github/Contamination_Genomes",
+                    decontamination.path = decontamination.path,
                     mode = "directory",
                     map.match = 0.99,
                     read.mapper = "bwa",
@@ -74,7 +69,7 @@ removeContamination(input.reads = "adaptor-removed-reads",
 mergePairedEndReads(input.reads = "decontaminated-reads",
                     output.dir = "pe-merged-reads",
                     mode = "directory",
-                    fastp.path = fastp.path,
+                    fastp.path = "fastp",
                     threads = threads,
                     mem = memory,
                     resume = FALSE,
@@ -85,105 +80,105 @@ mergePairedEndReads(input.reads = "decontaminated-reads",
 ##########################################################################################################
 #Step 2: Mitogenome assembly
 ##########################################################################################################
-
-devtools::install_github("chutter/PHYLOCAP")
-library(PHYLOCAP)
-
-gb.file = "Crocidura.gb"
-trnascan.path = "/Users/chutter/miniconda3/bin/tRNAscan-SE"
-work.dir = "/Volumes/Rodents/Mitogenomes"
-raw.dir = "/Users/chutter/Dropbox/Mammals/Philippine_Shrews_Raw_Data"
-setwd(work.dir)
-
-#Iteratively assembles to reference
-mitochondrialCapture(input.reads = "pe-merged-reads",
-                     genbank.file = gb.file,
-                     output.dir = "draftContigs",
-                     min.iterations = 5,
-                     max.iterations = 30,
-                     min.length = 16000,
-                     max.length = 40000,
-                     min.ref.id = 0.8,
-                     memory = 6,
-                     threads = 6,
-                     spades.path = "/usr/local/Spades/bin/spades.py",
-                     bbmap.path = "/usr/local/bin/bbmap.sh",
-                     resume = TRUE,
-                     overwrite = FALSE)
-
-### TO DO: Add a redo option for the non-continuous ones, using itself as a reference
-
-#Annotates mitochondrial contigs
-#To do: output format gff and others
-#To do 2: save new contigs (instead of old) but with corrected start point so half of something isn't lost
-#Combine build mtgenomes with this step. difficut.
-
-annotateMitoContigs(contig.folder = "draftContigs",
-                    genbank.file = gb.file,
-                    blast.path = "blast",
-                    tRNAscan.path = "tRNAscan-SE",
-                    organism.type = "vertebrate",
-                    overwrite = TRUE,
-                    quiet = TRUE)
-
-#Aligns all the different markers
-markerAlignment(input.folder = "Annotations/sample-markers",
-                genbank.file = gb.file,
-                threads = 6,
-                overwrite = TRUE)
-
-#Trims the alignments to ready for concatenation or gene tree estimation
-trimMitoAlignments(alignment.dir = "Alignments/untrimmed-alignments",
-                   alignment.format = "phylip",
-                   output.dir = "Alignments/trimmed-alignments",
-                   output.format = "phylip",
-                   sample.similiarity = TRUE,
-                   TrimAl = TRUE,
-                   TrimAl.path = "trimal",
-                   trim.external = TRUE,
-                   min.external.percent = 50,
-                   trim.coverage = TRUE,
-                   min.coverage.percent = 30,
-                   trim.column = TRUE,
-                   min.column.gap.percent = 100,
-                   alignment.assess = TRUE,
-                   min.sample.bp = 10,
-                   min.align.length = 0,
-                   min.taxa.count = 12,
-                   min.gap.percent = 50,
-                   overwrite = TRUE)
-
-#Aligns the mitogenomes and outputs summary stats
-alignMitogenomes(alignment.folder = "Alignments/untrimmed-alignments",
-                 genbank.file = gb.file,
-                 draft.contigs = "draftContigs",
-                 output.dir = "Genomes",
-                 dataset.name = "untrimmed",
-                 overwrite = TRUE)
-
-#Aligns the mitogenomes and outputs summary stats
-alignMitogenomes(alignment.folder = "Alignments/trimmed-alignments",
-                 genbank.file = gb.file,
-                 draft.contigs = "draftContigs",
-                 output.dir = "Genomes",
-                 dataset.name = "trimmed",
-                 overwrite = FALSE)
-
-### Working here
-#Builds and standardizes final mitogenomes
-#Reverse the whole thing if its backwards
-# Orient each one to begin with 1
-# Remove over-assembled ones next
-
-buildMitogenomes(annotation.dir = "Annotations",
-                 alignment.folder = "Alignments/untrimmed-alignments",
-                 genome.alignment = "Genomes/alignments/untrimmed_mitogenome_alignment.phy",
-                 genome.dir = "Genomes",
-                 output.dir = "untrimmed-finished",
-                 overwrite = FALSE)
-
-
-
+#
+# devtools::install_github("chutter/PHYLOCAP")
+# library(PHYLOCAP)
+#
+# gb.file = "Crocidura.gb"
+# trnascan.path = "/Users/chutter/miniconda3/bin/tRNAscan-SE"
+# work.dir = "/Volumes/Rodents/Mitogenomes"
+# raw.dir = "/Users/chutter/Dropbox/Mammals/Philippine_Shrews_Raw_Data"
+# setwd(work.dir)
+#
+# #Iteratively assembles to reference
+# mitochondrialCapture(input.reads = "pe-merged-reads",
+#                      genbank.file = gb.file,
+#                      output.dir = "draftContigs",
+#                      min.iterations = 5,
+#                      max.iterations = 30,
+#                      min.length = 16000,
+#                      max.length = 40000,
+#                      min.ref.id = 0.8,
+#                      memory = 6,
+#                      threads = 6,
+#                      spades.path = "/usr/local/Spades/bin/spades.py",
+#                      bbmap.path = "/usr/local/bin/bbmap.sh",
+#                      resume = TRUE,
+#                      overwrite = FALSE)
+#
+# ### TO DO: Add a redo option for the non-continuous ones, using itself as a reference
+#
+# #Annotates mitochondrial contigs
+# #To do: output format gff and others
+# #To do 2: save new contigs (instead of old) but with corrected start point so half of something isn't lost
+# #Combine build mtgenomes with this step. difficut.
+#
+# annotateMitoContigs(contig.folder = "draftContigs",
+#                     genbank.file = gb.file,
+#                     blast.path = "blast",
+#                     tRNAscan.path = "tRNAscan-SE",
+#                     organism.type = "vertebrate",
+#                     overwrite = TRUE,
+#                     quiet = TRUE)
+#
+# #Aligns all the different markers
+# markerAlignment(input.folder = "Annotations/sample-markers",
+#                 genbank.file = gb.file,
+#                 threads = 6,
+#                 overwrite = TRUE)
+#
+# #Trims the alignments to ready for concatenation or gene tree estimation
+# trimMitoAlignments(alignment.dir = "Alignments/untrimmed-alignments",
+#                    alignment.format = "phylip",
+#                    output.dir = "Alignments/trimmed-alignments",
+#                    output.format = "phylip",
+#                    sample.similiarity = TRUE,
+#                    TrimAl = TRUE,
+#                    TrimAl.path = "trimal",
+#                    trim.external = TRUE,
+#                    min.external.percent = 50,
+#                    trim.coverage = TRUE,
+#                    min.coverage.percent = 30,
+#                    trim.column = TRUE,
+#                    min.column.gap.percent = 100,
+#                    alignment.assess = TRUE,
+#                    min.sample.bp = 10,
+#                    min.align.length = 0,
+#                    min.taxa.count = 12,
+#                    min.gap.percent = 50,
+#                    overwrite = TRUE)
+#
+# #Aligns the mitogenomes and outputs summary stats
+# alignMitogenomes(alignment.folder = "Alignments/untrimmed-alignments",
+#                  genbank.file = gb.file,
+#                  draft.contigs = "draftContigs",
+#                  output.dir = "Genomes",
+#                  dataset.name = "untrimmed",
+#                  overwrite = TRUE)
+#
+# #Aligns the mitogenomes and outputs summary stats
+# alignMitogenomes(alignment.folder = "Alignments/trimmed-alignments",
+#                  genbank.file = gb.file,
+#                  draft.contigs = "draftContigs",
+#                  output.dir = "Genomes",
+#                  dataset.name = "trimmed",
+#                  overwrite = FALSE)
+#
+# ### Working here
+# #Builds and standardizes final mitogenomes
+# #Reverse the whole thing if its backwards
+# # Orient each one to begin with 1
+# # Remove over-assembled ones next
+#
+# buildMitogenomes(annotation.dir = "Annotations",
+#                  alignment.folder = "Alignments/untrimmed-alignments",
+#                  genome.alignment = "Genomes/alignments/untrimmed_mitogenome_alignment.phy",
+#                  genome.dir = "Genomes",
+#                  output.dir = "untrimmed-finished",
+#                  overwrite = FALSE)
+#
+#
+#
 
 
 
