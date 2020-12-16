@@ -100,7 +100,7 @@ mitochondrialCapture = function(input.reads = NULL,
 
   ### Makes the reference
   makeReference(genbank.file = genbank.file,
-                overwrite = overwrite,
+                overwrite = TRUE,
                 rep.origin = FALSE)
 
   #Sets up the reads
