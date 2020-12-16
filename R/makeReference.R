@@ -4,6 +4,10 @@
 #'
 #' @param genbank.file path to a folder of sequence alignments in phylip format.
 #'
+#' @param overwrite path to a folder of sequence alignments in phylip format.
+#'
+#' @param rep.origin path to a folder of sequence alignments in phylip format.
+#'
 #' @return an alignment of provided sequences in DNAStringSet format. Also can save alignment as a file with save.name
 #'
 #' @examples
@@ -33,7 +37,7 @@ makeReference = function(genbank.file = NULL,
     if (overwrite == TRUE){
       system(paste0("rm -r ", "Mito-Reference"))
       dir.create("Mito-Reference")
-    } else { stop("overwrite = FALSE and Mito-Reference directory exists") }
+    } else { return("overwrite = FALSE and Mito-Reference directory exists") }
   }#end dir exists
 
   options(stringsAsFactors = FALSE)
