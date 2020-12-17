@@ -11,7 +11,7 @@ The following are instructions for different setups:
 4. "cd" in the terminal to your work directory
 5. Run this anaconda command to make a new environment with all the necessary packages and their versions already included: 
 
-conda env create --file frogcap_env.yml --prefix $WORK/conda/frogcap
+conda env create --file conda_env.yml --prefix $WORK/conda/mitocap
 
 where $WORK is your working directory, conda is the environment folder (if creating new), and frogcap is the new environment name
 
