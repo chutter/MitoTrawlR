@@ -240,7 +240,7 @@ iterativeAssemble = function(input.reads = NULL,
     if (length(combined.contigs) >= 2){
       combined.contigs = removeOffTarget(target = reference,
                                          contigs = combined.contigs,
-                                         blast.path = "/Users/chutter/miniconda3/bin/",
+                                         blast.path = "",
                                          threads = threads,
                                          quiet = T,
                                          remove.bad = F)
@@ -250,7 +250,7 @@ iterativeAssemble = function(input.reads = NULL,
     if (max(Biostrings::width(combined.contigs)) >= min.length){
       combined.contigs = removeOffTarget(target = reference,
                                          contigs = combined.contigs,
-                                         blast.path = "/Users/chutter/miniconda3/bin/",
+                                         blast.path = "",
                                          threads = threads,
                                          quiet = T,
                                          remove.bad = T)
