@@ -57,6 +57,7 @@ removeOffTarget = function(target = NULL,
                 " -num_threads ", threads))
 
   #Need to load in transcriptome for each species and take the matching transcripts to the database
+  if (length(readLines("blast_match.txt")) == 0) { return(contigs) }
   match.data = read.table("blast_match.txt", sep = "\t", header = F, stringsAsFactors = FALSE)
   colnames(match.data) = headers
   system(paste0("rm blast_match.txt blast_db* blast_contigs.fa"))
