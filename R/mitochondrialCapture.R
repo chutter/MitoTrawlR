@@ -147,6 +147,10 @@ mitochondrialCapture = function(input.reads = NULL,
                                      bbmap.path = bbmap.path,
                                      mapper = "bbmap")
 
+    if (length(mito.contigs) == 0){
+      print(paste0(samples[i], " failed: no reads matching to reference."))
+      next }
+
     #Writes contigs
     names(mito.contigs) = paste0("seq", rep(1:length(mito.contigs), by = 1))
     write.loci = as.list(as.character(mito.contigs))
