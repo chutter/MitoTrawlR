@@ -203,32 +203,32 @@ iterativeAssemble = function(input.reads = NULL,
                                threads = threads,
                                memory = memory)
 
-    spades.contigs = spades.contigs[Biostrings::width(spades.contigs) >= 100]
-
-    #Saves the raw reads themselves
-    if (length(spades.contigs) == 0){
-      #Loops through each set of reads
-      save.seqs = Biostrings::DNAStringSet()
-      for (x in 1:length(temp.read.path)){
-        #Check size
-        temp.count = scan(file = temp.read.path[x], what = "character")
-        if (file.info(temp.read.path[x])$size == 0){ next }
-        #Sa es if there are reads
-        temp.fastq = ShortRead::readFastq(temp.read.path[x])
-        temp.fasta = temp.fastq@sread
-        temp.seqs = Biostrings::DNAStringSet(unlist(lapply(temp.fasta, FUN = function (x) paste0(x, collapse = "") )))
-        save.seqs = append(save.seqs, temp.seqs)
-      }#end x
-      #Removes if too many
-      if (length(save.seqs) >= 1000){ save.seqs = save.seqs[1:200] }
-
-      #Saves them if there are any changes
-      if (length(save.seqs) != 0){
-        save.seqs = append(save.seqs, combined.contigs)
-        names(save.seqs) = paste0("seq", rep(1:length(save.seqs), by = 1))
-        combined.contigs = runCap3(contigs = save.seqs)
-      }#end save.seqs if
-    }#end if
+    # spades.contigs = spades.contigs[Biostrings::width(spades.contigs) >= 100]
+    #
+    # #Saves the raw reads themselves
+    # if (length(spades.contigs) == 0){
+    #   #Loops through each set of reads
+    #   save.seqs = Biostrings::DNAStringSet()
+    #   for (x in 1:length(temp.read.path)){
+    #     #Check size
+    #     temp.count = scan(file = temp.read.path[x], what = "character")
+    #     if (file.info(temp.read.path[x])$size == 0){ next }
+    #     #Sa es if there are reads
+    #     temp.fastq = ShortRead::readFastq(temp.read.path[x])
+    #     temp.fasta = temp.fastq@sread
+    #     temp.seqs = Biostrings::DNAStringSet(unlist(lapply(temp.fasta, FUN = function (x) paste0(x, collapse = "") )))
+    #     save.seqs = append(save.seqs, temp.seqs)
+    #   }#end x
+    #   #Removes if too many
+    #   if (length(save.seqs) >= 1000){ save.seqs = save.seqs[1:200] }
+    #
+    #   #Saves them if there are any changes
+    #   if (length(save.seqs) != 0){
+    #     save.seqs = append(save.seqs, combined.contigs)
+    #     names(save.seqs) = paste0("seq", rep(1:length(save.seqs), by = 1))
+    #     combined.contigs = runCap3(contigs = save.seqs)
+    #   }#end save.seqs if
+    # }#end if
 
     #Cap3 to combine old and new
     combined.contigs = append(combined.contigs, spades.contigs)
