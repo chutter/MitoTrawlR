@@ -346,32 +346,32 @@ iterativeAssemble = function(input.reads = NULL,
   ## While loop end
   #############################
 
-  #Saves the raw reads themselves
-  if (new.len <= 200){
-    #Loops through each set of reads
-    save.seqs = Biostrings::DNAStringSet()
-    for (x in 1:length(temp.read.path)){
-      #Check size
-      temp.count = scan(file = temp.read.path[x], what = "character")
-      if (length(temp.count) == 0){ next }
-      #Sa es if there are reads
-      temp.fastq = ShortRead::readFastq(temp.read.path[x])
-      temp.fasta = temp.fastq@sread
-      temp.seqs = Biostrings::DNAStringSet(unlist(lapply(temp.fasta, FUN = function (x) paste0(x, collapse = "") )))
-      save.seqs = append(save.seqs, temp.seqs)
-    }#end x
-
-    if (length(save.seqs) >= 1000){
-      save.seqs = sample(save.seqs, 1000)
-    }
-
-    #Saves them if there are any changes
-    if (length(save.seqs) != 0){
-      names(save.seqs) = paste0("seq", rep(1:length(save.seqs), by = 1))
-      save.seqs = append(save.seqs, combined.contigs)
-      combined.contigs = runCap3(contigs = save.seqs)
-    }#end save.seqs if
-  }#end if
+  # #Saves the raw reads themselves
+  # if (new.len <= 200){
+  #   #Loops through each set of reads
+  #   save.seqs = Biostrings::DNAStringSet()
+  #   for (x in 1:length(temp.read.path)){
+  #     #Check size
+  #     temp.count = scan(file = temp.read.path[x], what = "character")
+  #     if (length(temp.count) == 0){ next }
+  #     #Sa es if there are reads
+  #     temp.fastq = ShortRead::readFastq(temp.read.path[x])
+  #     temp.fasta = temp.fastq@sread
+  #     temp.seqs = Biostrings::DNAStringSet(unlist(lapply(temp.fasta, FUN = function (x) paste0(x, collapse = "") )))
+  #     save.seqs = append(save.seqs, temp.seqs)
+  #   }#end x
+  #
+  #   if (length(save.seqs) >= 1000){
+  #     save.seqs = sample(save.seqs, 1000)
+  #   }
+  #
+  #   #Saves them if there are any changes
+  #   if (length(save.seqs) != 0){
+  #     names(save.seqs) = paste0("seq", rep(1:length(save.seqs), by = 1))
+  #     save.seqs = append(save.seqs, combined.contigs)
+  #     combined.contigs = runCap3(contigs = save.seqs)
+  #   }#end save.seqs if
+  # }#end if
 
   #If there is nothing matching at this point
   if (length(combined.contigs) == 0){
