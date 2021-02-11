@@ -81,6 +81,7 @@ tRNAscanBatch = function(genome.dir = NULL,
 
     #Load in tRNAscan data
     scan.headers = c("contig", "trna_no", "start", "end", "type", "codon","codon_start", "codon_end", "score")
+    if (length(readLines(output.name)) == 0) { next }
     scan.table = read.table(output.name, header = F, skip = 3)
     colnames(scan.table) = scan.headers
 
