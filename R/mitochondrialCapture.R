@@ -50,7 +50,7 @@
 
 #Iteratively assembles to reference
 mitochondrialCapture = function(input.reads = NULL,
-                                genbank.file = NULL,
+                                reference.name = "reference",
                                 output.dir = "draftContigs",
                                 min.iterations = 5,
                                 max.iterations = 20,
@@ -67,10 +67,11 @@ mitochondrialCapture = function(input.reads = NULL,
                                 quiet = TRUE) {
 
   # # #Debug
-  # input.reads = "pe-merged-reads"
-  # genbank.file = "Crocidura.gb"
+  # setwd("/Volumes/Rodents/Murinae/Mitochondrial_genomes")
+  # input.reads = "/Volumes/Rodents/Murinae/processed-reads/organized-reads"
+  # reference.name = "reference"
   # output.dir = "draftContigs"
-  # min.ref.id = 0.80
+  # min.ref.id = 0.8
   # memory = 8
   # threads = 6
   # resume = FALSE
@@ -87,6 +88,10 @@ mitochondrialCapture = function(input.reads = NULL,
   if (is.null(input.reads) == TRUE){ stop("Please provide input reads.") }
   if (is.null(output.dir) == TRUE){ stop("Please provide an output directory.") }
 
+  if (dir.exists(reference.name) == FALSE){
+    stop("Please provide a reference directory name made from the function buildReference.")
+  }
+
   #Sets directory and reads in  if (is.null(output.dir) == TRUE){ stop("Please provide an output directory.") }
   if (dir.exists(output.dir) == F){ dir.create(output.dir) } else {
     if (overwrite == TRUE){
@@ -97,11 +102,6 @@ mitochondrialCapture = function(input.reads = NULL,
 
   #Creates output directory
   if (dir.exists("logs") == F){ dir.create("logs") }
-
-  ### Makes the reference
-  makeReference(genbank.file = genbank.file,
-                overwrite = TRUE,
-                rep.origin = FALSE)
 
   #Sets up the reads
   files = list.files(path = input.reads, full.names = T, recursive = T)
@@ -133,8 +133,32 @@ mitochondrialCapture = function(input.reads = NULL,
 
     sample.reads = reads[grep(samples[i], reads)]
 
-    mito.contigs = iterativeAssemble(input.reads = sample.reads,
-                                     reference = "Mito-Reference/refGenome.fa",
+    #Concatenate together
+    read1.reads = sample.reads[grep("_READ1", sample.reads)]
+    read2.reads = sample.reads[grep("_READ2", sample.reads)]
+    read3.reads = sample.reads[grep("_READ3", sample.reads)]
+
+    it.sample.reads = c()
+    if (length(sample.reads) > 3) {
+      system(paste0("cat ", paste0(read1.reads, collapse = " "), " > ", input.reads,
+                    "/", samples[i], "_ALL_READ1.fastq.gz"))
+      system(paste0("cat ", paste0(read2.reads, collapse = " "), " > ", input.reads,
+                    "/", samples[i], "_ALL_READ2.fastq.gz"))
+
+      it.sample.reads[1] = paste0(input.reads, "/", samples[i], "_ALL_READ1.fastq.gz")
+      it.sample.reads[2] = paste0(input.reads, "/", samples[i], "_ALL_READ2.fastq.gz")
+
+      #Checks for the merged reads
+      if (length(read3.reads) >= 2){
+        system(paste0("cat ", paste0(read3.reads, collapse = " "), " > ", input.reads,
+                      "/", samples[i], "_ALL_READ3.fastq.gz"))
+        it.sample.reads[3] = paste0(input.reads, "/", samples[i], "_ALL_READ3.fastq.gz")
+      }#end if
+    } else { it.sample.reads = sample.reads }#end if
+
+    #Runs iterative assembly function
+    mito.contigs = iterativeAssemble(input.reads = it.sample.reads,
+                                     reference = paste0(reference.name, "/refGenome.fa"),
                                      output.name = paste0(output.dir, "/", samples[i]),
                                      min.ref.id = min.ref.id,
                                      memory = memory,
@@ -154,11 +178,18 @@ mitochondrialCapture = function(input.reads = NULL,
     #Writes contigs
     names(mito.contigs) = paste0("seq", rep(1:length(mito.contigs), by = 1))
     write.loci = as.list(as.character(mito.contigs))
-    writeFasta(sequences = write.loci, names = names(write.loci),
-               paste0(output.dir, "/", samples[i], ".fa"), nbchar = 1000000, as.string = T)
+    PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+                         paste0(output.dir, "/", samples[i], ".fa"), nbchar = 1000000, as.string = T)
+
+    #Delete combined files
+    if (length(sample.reads) > 3) {
+      system(paste0("rm ", input.reads, "/", samples[i], "_ALL_READ*"))
+    }#end delete
 
     print(paste0(samples[i], " completed!"))
 
   }#end sample loop
 
 }#end function
+
+

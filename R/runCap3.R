@@ -32,7 +32,8 @@
 
 runCap3 = function(contigs = input.contigs,
                    output.name = NULL,
-                   cap3.path = NULL,
+                   cap3.path = "cap3",
+                   read.R = FALSE,
                    a = 20,
                    b = 20,
                    c = 12,
@@ -86,27 +87,38 @@ runCap3 = function(contigs = input.contigs,
   # -z  N  specify min no. of good reads at clip pos N > 0 (3)
 
   #Writes contigs for cap3
-  write.loci = as.list(as.character(contigs))
-  writeFasta(sequences = write.loci, names = names(write.loci),
-             "input_contigs.fa", nbchar = 1000000, as.string = T)
+ # contigs = spades.contigs
+#  cap3.path = "cap3"
+ # z = 3
+#  o = 40
+ # e = 30
+#  s = 900
+
+  if (class(contigs) != "character") {
+    write.loci = as.list(as.character(contigs))
+    PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+                         "input_contigs.fa", nbchar = 1000000, as.string = T)
+    contig.file = "input_contigs.fa"
+  } else { contig.file = contigs }
 
   #runs cap3 to merge similar contigs (pull only clustered contigs out?)
-  system(paste0("cap3 input_contigs.fa -z ", z, " -o ", o, " -e ", e, " -s ", s, " > ",
+  system(paste0(cap3.path, " ", contig.file, " -z ", z, " -o ", o, " -e ", e, " -s ", s, " > ",
                 "input_contigs.fa.cap.txt"))
-
-  #Reads in results files
-  temp.assembled = Rsamtools::scanFa(Rsamtools::FaFile(paste0("input_contigs.fa.cap.contigs")))
-  temp.singlets = Rsamtools::scanFa(Rsamtools::FaFile(paste0("input_contigs.fa.cap.singlets")))
-  final.save = append(temp.assembled, temp.singlets)
 
   #Get cap3 files and deletes
   if (is.null(output.name) == F){
-    #Writes contigs for cap3
-    write.loci = as.list(as.character(final.save))
-    writeFasta(sequences = write.loci, names = names(write.loci),
-               paste0(output.name, ".fa"), nbchar = 1000000, as.string = T)
+    system(paste0("cat ", contig.file, ".cap.contigs ",
+                  contig.file, ".cap.singlets > ", output.name))
+    system(paste0("rm ", contig.file, "*"))
   }#end output
 
-  system(paste("rm input_contigs.fa*"))
-  return(final.save)
+  #Reads in results files
+  if (read.R == TRUE){
+    temp.assembled = Biostrings::readDNAStringSet(paste0("input_contigs.fa.cap.contigs"))
+    temp.singlets = Biostrings::readDNAStringSet(paste0("input_contigs.fa.cap.singlets"))
+    final.save = append(temp.assembled, temp.singlets)
+    system(paste("rm input_contigs.fa*"))
+    return(final.save)
+  }#end if
+
 }#end function

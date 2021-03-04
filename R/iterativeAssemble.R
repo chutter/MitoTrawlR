@@ -67,9 +67,9 @@ iterativeAssemble = function(input.reads = NULL,
                              overwrite = FALSE,
                              quiet = TRUE) {
 
-  # # #Debug
+  # #Debug
   # input.reads = sample.reads
-  # reference = "Mito-Reference/refGenome.fa"
+  # reference = paste0(reference.name, "/refGenome.fa")
   # output.name = paste0(output.dir, "/", samples[i])
   # min.ref.id = 0.80
   # memory = 8
@@ -194,14 +194,14 @@ iterativeAssemble = function(input.reads = NULL,
     system("rm -r ref")
 
     #Runs spades
-    spades.contigs = runSpades(read.paths = temp.read.path,
-                               full.path.spades = spades.path,
-                               mismatch.corrector = FALSE,
-                               save.file = F,
-                               quiet = T,
-                               read.contigs = T,
-                               threads = threads,
-                               memory = memory)
+    spades.contigs = PhyloCap::runSpades(read.paths = temp.read.path,
+                                         full.path.spades = spades.path,
+                                         mismatch.corrector = FALSE,
+                                         save.file = F,
+                                         quiet = T,
+                                         read.contigs = T,
+                                         threads = threads,
+                                         memory = memory)
 
     # spades.contigs = spades.contigs[Biostrings::width(spades.contigs) >= 100]
     #
@@ -233,7 +233,8 @@ iterativeAssemble = function(input.reads = NULL,
     #Cap3 to combine old and new
     combined.contigs = append(combined.contigs, spades.contigs)
     if (length(combined.contigs) > 1){
-      combined.contigs = runCap3(contigs = combined.contigs)
+      combined.contigs = MitoCap::runCap3(contigs = combined.contigs,
+                                          read.R = TRUE)
     }
 
     #Blasts and remvoes stuff that doesn't match to reference
@@ -258,11 +259,6 @@ iterativeAssemble = function(input.reads = NULL,
 
     if (max(Biostrings::width(combined.contigs)) >= min.length){
       circ.contigs = combined.contigs[Biostrings::width(combined.contigs) >= min.length]
-
-      if (length(circ.contigs) >= 2){
-        stop("too many big contigs")
-      }
-
       circ.genome = isCircularGenome(circ.contigs)
 
       if (circ.genome == TRUE) {
@@ -270,21 +266,7 @@ iterativeAssemble = function(input.reads = NULL,
         seeding = F
         combined.contigs = circ.contigs
       }
-
-
     }#end if
-
-
-    # if (length(combined.contigs) == 1){
-    #   #Tests for circularity
-    #   is.circ = isCircular(combined.contigs)
-    #
-    #   if (is.circ == TRUE){ stop("yay") }
-    # }#end if
-
-    # if (max(Biostrings::width(combined.contigs)) >= min.length){
-    #   combined.contigs = combined.contigs[Biostrings::width(combined.contigs) %in% max(Biostrings::width(combined.contigs))]
-    # }#end if
 
     #Check size
     new.len = sum(Biostrings::width(combined.contigs))
@@ -337,8 +319,8 @@ iterativeAssemble = function(input.reads = NULL,
       #Writes contigs for next seed
       names(combined.contigs) = paste0("seq", rep(1:length(combined.contigs), by = 1))
       write.loci = as.list(as.character(combined.contigs))
-      writeFasta(sequences = write.loci, names = names(write.loci),
-                 "iterative_temp/current_seed.fa", nbchar = 1000000, as.string = T)
+      PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+                           "iterative_temp/current_seed.fa", nbchar = 1000000, as.string = T)
     }#end else
 
   }#end while
