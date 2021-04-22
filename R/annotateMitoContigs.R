@@ -30,21 +30,22 @@
 
 #Annotates mitochondrial contigs
 annotateMitoContigs = function(contig.folder = NULL,
-                               genbank.file = NULL,
+                               reference.name = "reference",
                                blast.path = "blast",
-                               tRNAscan.path = "tRNAscan-SE",
+                               trnascan.path = "tRNAscan-SE",
                                organism.type = c("mammal", "vertebrate", "eukaryotic"),
                                overwrite = FALSE,
                                quiet = TRUE) {
 
-  #Debug
-  # genbank.file = "Crocidura.gb"
-  # contig.folder = "draftContigs"
+  # #Debug
+  # reference.name = "reference"
+  # contig.folder = "newContigs"
   # overwrite = TRUE
-  # quiet = TRUE
+  # quiet = FALSE
   # blast.path = "blast"
   # organism.type = "vertebrate"
-  # tRNAscan.path = trnascan.path
+  # trnascan.path = "/Users/chutter/miniconda3/bin/tRNAscan-SE"
+
 
   #Checks for output directories
   if (dir.exists("Annotations") == FALSE) { dir.create("Annotations") }
@@ -83,18 +84,13 @@ annotateMitoContigs = function(contig.folder = NULL,
   spp.samples =  list.files(contig.folder)
   spp.samples = gsub(".fa$", "", spp.samples)
 
-  ### Makes the reference
-  makeReference(genbank.file = genbank.file,
-                overwrite = overwrite,
-                rep.origin = FALSE)
-
-  ref.data = Rsamtools::scanFa(Rsamtools::FaFile("Mito-Reference/refMarkers.fa"))
+  ref.data = Rsamtools::scanFa(Rsamtools::FaFile(paste0(reference.name, "/refMarkers.fa")))
 
   headers = c("qName", "tName", "pident", "matches", "misMatches", "gapopen",
               "qStart", "qEnd", "tStart", "tEnd", "evalue", "bitscore", "qLen", "tLen", "gaps")
 
-  system(paste0("makeblastdb -in Mito-Reference/refMarkers.fa -parse_seqids -dbtype nucl",
-                " -out mito-blast_db"), ignore.stdout = quiet, ignore.stderr = quiet)
+  system(paste0("makeblastdb -in ", reference.name, "/refMarkers.fa -parse_seqids -dbtype nucl",
+                " -out ", reference.name, "/ref-blast-db"), ignore.stdout = quiet, ignore.stderr = quiet)
 
   for (i in 1:length(spp.samples)){
 
@@ -108,7 +104,7 @@ annotateMitoContigs = function(contig.folder = NULL,
                         quiet = TRUE)
 
     #Matches samples to loci
-    system(paste0("blastn -task dc-megablast -db mito-blast_db",
+    system(paste0("blastn -task dc-megablast -db ", reference.name, "/ref-blast-db",
                   " -query ", contig.folder, "/", spp.samples[i], ".fa",
                   " -out ", spp.samples[i], "_match.txt",
                   " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen gaps\" ",
@@ -226,6 +222,7 @@ annotateMitoContigs = function(contig.folder = NULL,
         for (k in 1:(nrow(sub.data)-1)){
 
           if (nrow(sub.data)-1 == k){ break }
+          if (nrow(sub.data) == 1){ break }
 
           #If they are overlapping
           if (sub.data$tStart[index+1] <= sub.data$tEnd[index]){
@@ -243,7 +240,9 @@ annotateMitoContigs = function(contig.folder = NULL,
         }#end k
 
         paste.contigs = Biostrings::DNAStringSet()
-        for (k in 1:(nrow(sub.data)-1)){
+        for (k in 1:(nrow(sub.data)-1) ){
+
+          if (k >= nrow(sub.data)-1){ next }
           #If they are overlapping
           if (sub.data$tStart[k+1] <= sub.data$tEnd[k]){
 
@@ -362,13 +361,13 @@ annotateMitoContigs = function(contig.folder = NULL,
         temp.good = temp.good[order(temp.good$qStart),]
         temp.rna = temp.rna[order(temp.rna$start),]
         #Add to the annotation file and check coordinates
-        new.entry = data.frame(contig = temp.rna$contig,
+        new.entry = data.frame(contig = temp.good$qName,
                                feature = temp.good$tName,
-                               tStart = temp.rna$start,
-                               tEnd = temp.rna$end,
+                               tStart = temp.good$tStart,
+                               tEnd = temp.good$tEnd,
                                bStart = temp.good$qStart,
                                bEnd = temp.good$qEnd,
-                               dir = temp.rna$dir,
+                               dir = temp.good$qDir,
                                blast = TRUE,
                                tRNAScan = TRUE)
         new.data = rbind(new.data, new.entry)

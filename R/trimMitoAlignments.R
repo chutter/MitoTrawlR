@@ -210,7 +210,8 @@ trimMitoAlignments = function(alignment.dir = "Alignments/untrimmed-alignments",
       #sample coverage function
       cov.align = trimSampleCoverage(alignment = non.align,
                                      min.coverage.percent = min.coverage.percent,
-                                     min.sample.bp = min.sample.bp)
+                                     min.sample.bp = min.sample.bp,
+                                     relative.width = "sample")
       non.align = cov.align
       #Saves stat data
       data.table::set(save.data, i = as.integer(i), j = match("covSamples", header.data), value = length(non.align))

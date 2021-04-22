@@ -30,7 +30,7 @@
 
 #Aligns all the different markers
 markerAlignment = function(input.folder = NULL,
-                           genbank.file = NULL,
+                           reference.name = NULL,
                            threads = 1,
                            overwrite = TRUE){
 
@@ -66,13 +66,8 @@ markerAlignment = function(input.folder = NULL,
     } else { stop("overwrite is false and directory exists. Exiting.") }
   }#end dir exists
 
-  #Makes reference for blasting
-  makeReference(genbank.file = genbank.file,
-                overwrite = overwrite,
-                rep.origin = FALSE)
-
   #Sets up the loci to align
-  ref.data = Rsamtools::scanFa(Rsamtools::FaFile("Mito-Reference/refMarkers.fa"))
+  ref.data = Rsamtools::scanFa(Rsamtools::FaFile(paste0(reference.name, "/refMarkers.fa")))
 
   #Gets the samples
   spp.samples = list.files(input.folder)

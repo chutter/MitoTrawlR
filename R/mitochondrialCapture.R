@@ -68,14 +68,14 @@ mitochondrialCapture = function(input.reads = NULL,
 
   # # #Debug
   # setwd("/Volumes/Rodents/Murinae/Mitochondrial_genomes")
-  # input.reads = "/Volumes/Rodents/Murinae/processed-reads/organized-reads"
+  # input.reads = "/Volumes/Rodents/Murinae/processed-reads/adaptor-removed-reads"
   # reference.name = "reference"
   # output.dir = "draftContigs"
   # min.ref.id = 0.8
   # memory = 8
   # threads = 6
-  # resume = FALSE
-  # overwrite = TRUE
+  # resume = TRUE
+  # overwrite = FALSE
   # max.iterations = 30
   # min.iterations = 5
   # min.length = 15000
