@@ -20,6 +20,5 @@ RoxygenNote: 7.1.0
 Imports:
         ape (>= 5.0),
         stringr (>= 1.4),
-        genbankr (>= 1.10.0), 
         Biostrings (>= 2.5)
         
