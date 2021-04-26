@@ -128,19 +128,19 @@ iterativeAssemble = function(input.reads = NULL,
 
     #Subsets the reads to the lane
     set.reads = input.reads
-    set.read1 = set.reads[grep("READ1|R1", set.reads)]
-    if (length(input.reads) >= 2){ set.read2 = set.reads[grep("READ2|R2", set.reads)] }
-    if (length(input.reads) >= 3){ set.read3 = set.reads[grep("READ3|MERGE|singletons", set.reads)] }
+    # set.read1 = set.reads[grep("READ1|R1", set.reads)]
+    # if (length(input.reads) >= 2){ set.read2 = set.reads[grep("READ2|R2", set.reads)] }
+    # if (length(input.reads) >= 3){ set.read3 = set.reads[grep("READ3|MERGE|singletons", set.reads)] }
 
     #Runs bbmap if selected
     if (mapper == "bbmap"){
 
       if (length(set.reads) == 1){
         #Pick out matching reads to mt Genomes
-        system(paste0(bbmap.path, " -Xmx", memory, "g ref=iterative_temp/current_seed.fa in1=", set.read1,
+        system(paste0(bbmap.path, " -Xmx", memory, "g ref=iterative_temp/current_seed.fa in1=", set.reads[1],
                       " vslow k=12 minid=", min.ref.id,
                       " outm1=iterative_temp/temp_read1.fq"),
-               ignore.stderr = T)
+               ignore.stderr = quiet, ignore.stdout = quiet)
         #Saves and combines
         system(paste0("cat iterative_temp/read1.fq iterative_temp/temp_read1.fq >> iterative_temp/new_read1.fq"))
         system(paste0("rm iterative_temp/read1.fq"))
@@ -151,10 +151,10 @@ iterativeAssemble = function(input.reads = NULL,
 
       if (length(set.reads) >= 2){
         #Pick out matching reads to mt Genomes
-        system(paste0(bbmap.path, " -Xmx", memory, "g ref=iterative_temp/current_seed.fa", " in1=", set.read1,
-                      " in2=", set.read2, " vslow k=12 minid=", min.ref.id,
+        system(paste0(bbmap.path, " -Xmx", memory, "g ref=iterative_temp/current_seed.fa", " in1=", set.reads[1],
+                      " in2=", set.reads[2], " vslow k=12 minid=", min.ref.id,
                       " outm1=iterative_temp/temp_read1.fq outm2=iterative_temp/temp_read2.fq"),
-               ignore.stderr = T)
+               ignore.stderr = quiet, ignore.stdout = quiet)
         #Saves and combines
         system(paste0("cat iterative_temp/read1.fq iterative_temp/temp_read1.fq >> iterative_temp/new_read1.fq"))
         system(paste0("cat iterative_temp/read2.fq iterative_temp/temp_read2.fq >> iterative_temp/new_read2.fq"))
@@ -170,9 +170,9 @@ iterativeAssemble = function(input.reads = NULL,
       if (length(set.reads) == 3){
         #Third set of reads
         system(paste0(bbmap.path, " -Xmx", memory, "g ref=iterative_temp/current_seed.fa",
-                      " in=", set.read3, " vslow k=12 minid=", min.ref.id,
+                      " in=", set.reads[3], " vslow k=12 minid=", min.ref.id,
                       " outm=iterative_temp/temp_read3.fq"),
-               ignore.stderr = T)
+               ignore.stderr = quiet, ignore.stdout = quiet)
         #Saves and combines
         system(paste0("cat iterative_temp/read3.fq iterative_temp/temp_read3.fq >> iterative_temp/new_read3.fq"))
         system(paste0("rm iterative_temp/read3.fq"))
@@ -198,37 +198,42 @@ iterativeAssemble = function(input.reads = NULL,
                                          full.path.spades = spades.path,
                                          mismatch.corrector = FALSE,
                                          save.file = F,
-                                         quiet = T,
+                                         quiet =T,
                                          read.contigs = T,
                                          threads = threads,
                                          memory = memory)
 
-    # spades.contigs = spades.contigs[Biostrings::width(spades.contigs) >= 100]
-    #
-    # #Saves the raw reads themselves
-    # if (length(spades.contigs) == 0){
-    #   #Loops through each set of reads
-    #   save.seqs = Biostrings::DNAStringSet()
-    #   for (x in 1:length(temp.read.path)){
-    #     #Check size
-    #     temp.count = scan(file = temp.read.path[x], what = "character")
-    #     if (file.info(temp.read.path[x])$size == 0){ next }
-    #     #Sa es if there are reads
-    #     temp.fastq = ShortRead::readFastq(temp.read.path[x])
-    #     temp.fasta = temp.fastq@sread
-    #     temp.seqs = Biostrings::DNAStringSet(unlist(lapply(temp.fasta, FUN = function (x) paste0(x, collapse = "") )))
-    #     save.seqs = append(save.seqs, temp.seqs)
-    #   }#end x
-    #   #Removes if too many
-    #   if (length(save.seqs) >= 1000){ save.seqs = save.seqs[1:200] }
-    #
-    #   #Saves them if there are any changes
-    #   if (length(save.seqs) != 0){
-    #     save.seqs = append(save.seqs, combined.contigs)
-    #     names(save.seqs) = paste0("seq", rep(1:length(save.seqs), by = 1))
-    #     combined.contigs = runCap3(contigs = save.seqs)
-    #   }#end save.seqs if
-    # }#end if
+    spades.contigs = spades.contigs[Biostrings::width(spades.contigs) >= 100]
+
+    #Saves the raw reads themselves
+    if (length(spades.contigs) == 0){
+      #Loops through each set of reads
+      save.seqs = Biostrings::DNAStringSet()
+      for (x in 1:length(temp.read.path)){
+        #Check size
+        temp.count = scan(file = temp.read.path[x], what = "character")
+        if (file.info(temp.read.path[x])$size == 0){ next }
+        #Sa es if there are reads
+        temp.fastq = Biostrings::readDNAStringSet(temp.read.path[x], format = "fastq")
+        save.seqs = append(save.seqs, temp.fastq)
+      }#end x
+      #Removes if too many
+      if (length(save.seqs) >= 1000){ save.seqs = save.seqs[1:200] }
+
+      #Saves them if there are any changes
+      if (length(save.seqs) != 0){
+        save.seqs = append(save.seqs, combined.contigs)
+        names(save.seqs) = paste0("seq", rep(1:length(save.seqs), by = 1))
+        combined.contigs = runCap3(contigs = save.seqs)
+      } else { combined.contigs = Biostrings::DNAStringSet() }
+    } else { combined.contigs = append(combined.contigs, spades.contigs)}
+
+    #Checks for failure of everything
+    if (length(combined.contigs) == 0) {
+      seeding = F
+      print(paste0("mitogenome failed, reads could not be assembled."))
+      next
+    }
 
     #Cap3 to combine old and new
     combined.contigs = append(combined.contigs, spades.contigs)

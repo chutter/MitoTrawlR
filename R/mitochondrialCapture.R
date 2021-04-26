@@ -69,19 +69,19 @@ mitochondrialCapture = function(input.reads = NULL,
   # # #Debug
   # setwd("/Volumes/Rodents/Murinae/Mitochondrial_genomes")
   # input.reads = "/Volumes/Rodents/Murinae/processed-reads/adaptor-removed-reads"
-  # reference.name = "reference"
-  # output.dir = "draftContigs"
-  # min.ref.id = 0.8
-  # memory = 8
-  # threads = 6
-  # resume = TRUE
-  # overwrite = FALSE
-  # max.iterations = 30
-  # min.iterations = 5
-  # min.length = 15000
-  # max.length = 40000
-  # spades.path = "/usr/local/Spades/bin/spades.py"
-  # bbmap.path = "/usr/local/bin/bbmap.sh"
+  reference.name = "reference"
+  output.dir = "draftContigs"
+  min.ref.id = 0.8
+  memory = 8
+  threads = 6
+  resume = TRUE
+  overwrite = FALSE
+  max.iterations = 30
+  min.iterations = 5
+  min.length = 15000
+  max.length = 40000
+  spades.path = "/usr/local/Spades/bin/spades.py"
+  bbmap.path = "/usr/local/bin/bbmap.sh"
 
   #Quick checks
   options(stringsAsFactors = FALSE)
@@ -134,27 +134,34 @@ mitochondrialCapture = function(input.reads = NULL,
     sample.reads = reads[grep(samples[i], reads)]
 
     #Concatenate together
-    read1.reads = sample.reads[grep("_READ1", sample.reads)]
-    read2.reads = sample.reads[grep("_READ2", sample.reads)]
-    read3.reads = sample.reads[grep("_READ3", sample.reads)]
+    read1.reads = sample.reads[grep("_1.f.*|-1.f.*|_R1_.*|-R1_.*|_R1-.*|-R1-.*|READ1.*|_R1.fast.*|-R1.fast.*", sample.reads)]
+    read2.reads = sample.reads[grep("_2.f.*|-2.f.*|_R2_.*|-R2_.*|_R2-.*|-R2-.*|READ2.*|_R2.fast.*|-R2.fast.*", sample.reads)]
+    read3.reads = sample.reads[grep("_3.f.*|-3.f.*|_R3_.*|-R3_.*|_R3-.*|-R3-.*|READ3.*|_R3.fast.*|-R3.fast.*|_READ3.fast.*|-READ3.fast.*|_singleton.*|-singleton.*|READ-singleton.*|READ_singleton.*|_READ-singleton.*|-READ_singleton.*|-READ-singleton.*|_READ_singleton.*", sample.reads)]
 
+    #Checks for reads
+    if (length(read1.reads) == 0){ stop("error: read pairs could not be identified.")}
+    if (length(read2.reads) == 0 && length(sample.reads) >= 2){ stop("error: read pairs could not be identified.")}
+    if (length(read3.reads) == 0 && length(sample.reads) >= 3){ stop("error: merged set of reads could not be identified.")}
+
+    #Combines duplicate read sets
     it.sample.reads = c()
-    if (length(sample.reads) > 3) {
+    if (length(read1.reads) >= 2) {
       system(paste0("cat ", paste0(read1.reads, collapse = " "), " > ", input.reads,
                     "/", samples[i], "_ALL_READ1.fastq.gz"))
+      it.sample.reads[1] = paste0(input.reads, "/", samples[i], "_ALL_READ1.fastq.gz")
+    } else { it.sample.reads[1] = read1.reads }
+
+    if (length(read2.reads) >= 2) {
       system(paste0("cat ", paste0(read2.reads, collapse = " "), " > ", input.reads,
                     "/", samples[i], "_ALL_READ2.fastq.gz"))
-
-      it.sample.reads[1] = paste0(input.reads, "/", samples[i], "_ALL_READ1.fastq.gz")
       it.sample.reads[2] = paste0(input.reads, "/", samples[i], "_ALL_READ2.fastq.gz")
+    } else { it.sample.reads[2] = read2.reads }
 
-      #Checks for the merged reads
-      if (length(read3.reads) >= 2){
-        system(paste0("cat ", paste0(read3.reads, collapse = " "), " > ", input.reads,
-                      "/", samples[i], "_ALL_READ3.fastq.gz"))
-        it.sample.reads[3] = paste0(input.reads, "/", samples[i], "_ALL_READ3.fastq.gz")
-      }#end if
-    } else { it.sample.reads = sample.reads }#end if
+    if (length(read3.reads) >= 2) {
+      system(paste0("cat ", paste0(read3.reads, collapse = " "), " > ", input.reads,
+                    "/", samples[i], "_ALL_READ3.fastq.gz"))
+      it.sample.reads[3] = paste0(input.reads, "/", samples[i], "_ALL_READ3.fastq.gz")
+    } else { it.sample.reads[3] = read3.reads }
 
     #Runs iterative assembly function
     mito.contigs = iterativeAssemble(input.reads = it.sample.reads,
