@@ -69,19 +69,19 @@ mitochondrialCapture = function(input.reads = NULL,
   # # #Debug
   # setwd("/Volumes/Rodents/Murinae/Mitochondrial_genomes")
   # input.reads = "/Volumes/Rodents/Murinae/processed-reads/adaptor-removed-reads"
-  reference.name = "reference"
-  output.dir = "draftContigs"
-  min.ref.id = 0.8
-  memory = 8
-  threads = 6
-  resume = TRUE
-  overwrite = FALSE
-  max.iterations = 30
-  min.iterations = 5
-  min.length = 15000
-  max.length = 40000
-  spades.path = "/usr/local/Spades/bin/spades.py"
-  bbmap.path = "/usr/local/bin/bbmap.sh"
+  # reference.name = "reference"
+  # output.dir = "draftContigs"
+  # min.ref.id = 0.8
+  # memory = 8
+  # threads = 6
+  # resume = TRUE
+  # overwrite = FALSE
+  # max.iterations = 30
+  # min.iterations = 5
+  # min.length = 15000
+  # max.length = 40000
+  # spades.path = "/usr/local/Spades/bin/spades.py"
+  # bbmap.path = "/usr/local/bin/bbmap.sh"
 
   #Quick checks
   options(stringsAsFactors = FALSE)
