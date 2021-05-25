@@ -38,9 +38,8 @@ buildReference = function(reference.fasta = NULL,
   # reference.name = "reference"
   # overwrite = TRUE
   # rep.origin = FALSE
-  options(stringsAsFactors = FALSE)
 
-  if (is.null(annotation.type) != "genbank" && is.null(reference.fasta) == TRUE){
+  if (annotation.type != "genbank" && is.null(reference.fasta) == TRUE){
     stop("Please provide a reference fasta file or a single genbank file.")
   }
 
@@ -213,7 +212,7 @@ buildReference = function(reference.fasta = NULL,
   PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
                        paste0(reference.name, "/refGenome.fa"), nbchar = 1000000, as.string = T)
 
-  write.table(all.data, file = paste0(reference.name, "/referenceTable.txt", sep = "\t"))
+  write.table(all.data, file = paste0(reference.name, "/referenceTable.txt", sep = "\t"), row.names = F, quote = F)
 
   print(paste0("Mitochondrial reference for ", reference.name, " created in Mito-Reference"))
 
