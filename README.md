@@ -57,7 +57,7 @@ Second, change your working directory in the terminal to the downloaded reposito
 cd /MitoCap/setup-configuration_files/
 ```
 
-The R packages and outside programs can be installed manually or more easily through the anaconda environment file provided (version numbers are provided in environment file if manual installation is desired). To install with the environment file, the easiest and quickest way is to first install the Anaconda package manager. Anaconda can be downloaded and installed for different operating systems from https://anaconda.org. Miniconda is recommended. Once installed, you can create a new environment for PhyloCap by: 
+The R packages and outside programs can be installed manually or more easily through the anaconda environment file provided (version numbers are provided in environment file if manual installation is desired). To install with the environment file, the easiest and quickest way is to first install the Anaconda package manager. Anaconda can be downloaded and installed for different operating systems from https://anaconda.org. Miniconda is recommended. Once installed, you can create a new environment for MitoCap by: 
 
 ```bash
 conda env create -f MitoCap.yml -n MitoCap
@@ -85,9 +85,9 @@ conda activate /PLACE/YOUR/DIRECTORY/HERE/MitoCap
 
 # Installation of R package
 
-The main functions of MitoCap are contained in an R package that has been tested on R version 4.0.2 and use the listed programs above along with custom scripts. To install PhyloCap from GitHub, you can use the R package devtools included in the environment above. When running in a cluster environment, the code for installation here should be included at the top of your R script with your selected PhyloCap functions. Here are step-by-step instructions for installation:
+The main functions of MitoCap are contained in an R package that has been tested on R version 4.0.2 and use the listed programs above along with custom scripts. To install MitoCap from GitHub, you can use the R package devtools included in the environment above. When running in a cluster environment, the code for installation here should be included at the top of your R script with your selected PhyloCap functions. Here are step-by-step instructions for installation:
 
-1) Install MitoCap by typing in your R console: 
+1) Install MitoCap by typing in your R console or including at the top of your R script (its already included in the automatic pipeline script): 
 
 ```R
 devtools::install_github("chutter/MitoCap", update = "never", dependencies = FALSE)
@@ -105,7 +105,7 @@ library(MitoCap)
 And installation should be done! All the functions for MitoCap should be ready to go! It is recommended to keep the install line above in your R script as the package is frequently updated for bugs and other features. In the future when there is a stable release, the R package will be available through Anaconda. 
 
 
-3) You can run the following function to see if PhyloCap can find the dependencies: 
+3) You can run the following function to see if MitoCap can find the dependencies: 
 
 < coming soon a function to test if they can found >
 
@@ -114,9 +114,9 @@ And installation should be done! All the functions for MitoCap should be ready t
 
 [Installation: detailed installation instructions and trouble-shooting ](https://github.com/chutter/PhyloCap/wiki/Installation:-detailed-installation-instructions-and-trouble-shooting)
 
-[Tutorial 1: PhyloCap configuration](https://github.com/chutter/PhyloCap/wiki/Tutorial-1:-PhyloCap-configuration)
+[Tutorial 1: MitoCap configuration](https://github.com/chutter/MitoCap/wiki/Tutorial-1:-MitoCap-configuration)
 
-[Tutorial 2: PhyloCap quick start pipeline](https://github.com/chutter/PhyloCap/wiki/Tutorial-2:-PhyloCap-quick-start-pipeline)
+[Tutorial 2: MitoCap quick start pipeline](https://github.com/chutter/MitoCap/wiki/Tutorial-2:-MitoCap-quick-start-pipeline)
 
-[Tutorial 3: Advanced function use](https://github.com/chutter/PhyloCap/wiki/Tutorial-3:-Advanced-function-use)
+[Tutorial 3: Advanced function use](https://github.com/chutter/MitoCap/wiki/Tutorial-3:-Advanced-function-use)
 
