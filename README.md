@@ -40,7 +40,6 @@ Imports:
 - BLAST: matching assembled contigs to targets, other utilities
 - mafft: creating alignments
 - trimal: trimming alignments
-- IqTree: gene tree and concatenation trees
 - GATK4: variant calling functions
 - SamTools: variant calling and read mapping tools
 - tRNAScan: annotate tRNAs
