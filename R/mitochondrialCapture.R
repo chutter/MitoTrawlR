@@ -57,9 +57,10 @@ mitochondrialCapture = function(input.reads = NULL,
                                 min.length = 17000,
                                 max.length = 30000,
                                 min.ref.id = 0.75,
-                                spades.path = "spades.py",
-                                bbmap.path = "bbmap.sh",
-                                cap3.path = "cap3",
+                                spades.path = NULL,
+                                bbmap.path = NULL,
+                                cap3.path = NULL,
+                                blast.path = NULL,
                                 memory = 1,
                                 threads = 1,
                                 resume = TRUE,
@@ -83,8 +84,39 @@ mitochondrialCapture = function(input.reads = NULL,
   # spades.path = "/usr/local/Spades/bin/spades.py"
   # bbmap.path = "/usr/local/bin/bbmap.sh"
 
+
+  if (is.null(spades.path) == FALSE){
+    b.string = unlist(strsplit(spades.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      spades.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { spades.path = "" }
+
+  #Same adds to bbmap path
+  if (is.null(bbmap.path) == FALSE){
+    b.string = unlist(strsplit(bbmap.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      bbmap.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { bbmap.path = "" }
+
+  #Same adds to bbmap path
+  if (is.null(cap3.path) == FALSE){
+    b.string = unlist(strsplit(cap3.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      cap3.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { cap3.path = "" }
+
+  #Same adds to bbmap path
+  if (is.null(blast.path) == FALSE){
+    b.string = unlist(strsplit(blast.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      blast.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { blast.path = "" }
+
   #Quick checks
-  options(stringsAsFactors = FALSE)
   if (is.null(input.reads) == TRUE){ stop("Please provide input reads.") }
   if (is.null(output.dir) == TRUE){ stop("Please provide an output directory.") }
 
@@ -176,6 +208,7 @@ mitochondrialCapture = function(input.reads = NULL,
                                      max.length = max.length,
                                      spades.path = spades.path,
                                      bbmap.path = bbmap.path,
+                                     blast.path = blast.path,
                                      mapper = "bbmap")
 
     if (length(mito.contigs) == 0){

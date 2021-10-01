@@ -47,7 +47,8 @@ setupCheck = function(anaconda.environment = "conda/PhyloCap",
                       iqtree.path = NULL,
                       trimAl.path = NULL,
                       julia.path = NULL,
-                      taper.path = NULL) {
+                      taper.path = NULL,
+                      tRNAscan.path = NULL) {
 
   #anaconda.environment = "/Users/chutter/conda/PhyloCap"
 
@@ -63,17 +64,11 @@ setupCheck = function(anaconda.environment = "conda/PhyloCap",
     trimAl.path = paste0(anaconda.environment, "/bin")
     taper.path = paste0(anaconda.environment, "/bin")
     julia.path = paste0(anaconda.environment, "/bin")
+    tRNAscan.path = paste0(anaconda.environment, "/bin")
   }
 
   #Check paths from above
   pass = TRUE
-  if (file.exists(paste0(fastp.path, "/fastp")) == TRUE){
-    print("Fastp was found.")
-  } else {
-    pass = FALSE
-    print("Fastp could not be found.")
-  } #end else
-
   if (file.exists(paste0(samtools.path, "/samtools")) == TRUE){
     print("Samtools was found.")
   } else {
@@ -136,6 +131,15 @@ setupCheck = function(anaconda.environment = "conda/PhyloCap",
     pass = FALSE
     print("trimal could not be found.")
   } #end else
+
+  if (file.exists(paste0(tRNAscan.path, "/tRNAscan-SE")) == TRUE){
+    print("tRNAscan was found.")
+  } else {
+    pass = FALSE
+    print("tRNAscan could not be found.")
+  } #end else
+
+
 #
 #   if (file.exists(paste0(taper.path, "/taper")) == TRUE){
 #     print("TAPER was found.")

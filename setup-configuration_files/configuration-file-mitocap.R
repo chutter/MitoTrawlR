@@ -6,19 +6,21 @@
 #########################
 # *** Full paths should be used whenever possible
 #The main working directory
-work.dir = "/Users/chutter/Dropbox/Research/0_Github/Test-dataset"
-#The file rename (File, Sample columns) for organizing reads. Set to NULL if not needed
-file.rename = "/Users/chutter/Dropbox/Research/0_Github/Test-dataset/file_rename.csv"
-#The file for the contaminant genomes (Genome, Accession columns); use NULL if download.contaminant.genomes = F
-contaminant.genome.list = "/Users/chutter/Dropbox/Research/0_Github/PhyloCap/setup-configuration_files/decontamination_database.csv"
-#The sequence capture target marker file for extraction from contigs
-target.file = "/Users/chutter/Dropbox/Research/0_Github/PhyloCap/setup-configuration_files/Ranoidea_All-Markers_Apr21-2019.fa"
+work.dir = "/Volumes/Rodents/Mitogenomes/Crocidura"
 #The input raw read directory
-read.dir = "/Users/chutter/Dropbox/Research/0_Github/Test-dataset/raw-reads"
+read.dir = "/Volumes/Rodents/Mitogenomes/Crocidura/processed-reads/pe-merged-reads"
 #The name for the dataset
-dataset.name = "Test"
-#The name for the processed reads folder
-processed.reads = "processed-reads"
+dataset.name = "Crocidura"
+
+#Reference configuration
+#########################
+#Provide a fasta file to a single sequence for the mitochondrial genome
+reference.fasta = "Mus_mus.fa"
+#provide a table or GFF file annotating the features (genes, tRNAs, etc) for reference.fasta
+#GFF file can be downloaded directly from GenBank
+annotation.file = "Mus_mus.gff"
+#Only GFF available for now
+annotation.type = "gff"
 
 #Global settings
 #########################
@@ -27,65 +29,37 @@ threads = 4
 #Amount of memory to allocate in GB
 memory = 8
 #Whether to overwrite previous runs
-overwrite = FALSE
+overwrite = TRUE
 #Resume from previous runs (does not overwrite)
-resume = TRUE
+resume = FALSE
 #Print verbose output for each function
 quiet = TRUE
 
-#Pre-processing settings
-#########################
-#TRUE = to organize reads and rename to sample names from the "file_rename.csv" above
-organize.reads = TRUE
-#TRUE = to run adaptor removal on reads
-remove.adaptors = TRUE
-#Merge paired end reads
-merge.pe.reads = TRUE
-#Remove contamination
-decontamination = TRUE
-#Download contaminat genomes from genbank if TRUE
-download.contaminant.genomes = TRUE
-#Alternatively, a path can be set to a downloaded set of contaminant genomes if downloading does not work; NULL if downloading
-decontamination.path = NULL
-#include the human genome? Unless human is study organism or UCEs in mammals are used
-include.human = TRUE
-#Include the univec contaminant database?
-include.univec = TRUE
-#The matching proportion of bases for a contaminant hit and removal
-decontamination.match = 0.99
 
-#Assembly settings
-#########################
-#Denovo assembly with spades
-denovo.assembly = TRUE
-#The selected k-mer values for spades
-spades.kmer.values = c(21,33,55,77,99,127)
-#Whether to use mismatch corrector (requires a lot of RAM and resources)
-spades.mismatch.corrector = TRUE
-#Whether to save the corrected reads
-save.corrected.reads = FALSE
 
-#Target matching settings
+#Mitogenome assembly configuration
 #########################
-#TRUE = to run target matching on contigs
-match.targets = TRUE
-#Directory of assembled contigs to be used for target matching
-assembly.directory = "draft-assemblies"
-#whether to trim to the targets losing flanking sequence (TRUE) or keep the entire contig (FALSE)
-trim.to.targets = FALSE
-#The directory of contigs to use for target matching
-#contig.directory = "draft-scaffolds" #TO ADD IN
-#The minimum match percentage for a contig match to a target
-min.match.percent = 60
-#The minimum match length for a contig match to a target
-min.match.length = 40
-#The minimum match coverage, contig must overlap by X proportion to target
-min.match.coverage = 50
+#
+# mitochondrialCapture(input.reads = input.reads,
+#                      reference.name = "reference",
+#                      output.dir = "draftContigs",
+#                      min.iterations = 5,
+#                      max.iterations = 30,
+#                      min.length = 16000,
+#                      max.length = 40000,
+#                      min.ref.id = 0.8,
+#                      memory = memory,
+#                      threads = threads,
+#                      spades.path = spades.path,
+#                      bbmap.path = bbmap.path,
+#                      resume = TRUE,
+#                      overwrite = FALSE)
+
 
 #Alignment settings
 #########################
 #TRUE = to run alignments for the matching targets from above
-align.matching.targets = TRUE
+align.mitochondrial.markers = FALSE
 #The minimum number of taxa to keep an alignment
 min.taxa.alignment = 4
 
@@ -96,7 +70,7 @@ trim.alignments = TRUE
 #The minimum number of taxa to keep an alignment
 min.taxa.alignment.trim = 5
 #The minimum alignment basepairs to keep an alignment
-min.alignment.length = 100
+min.alignment.length = 10
 #The maximum gaps from throughout the entire alignment to keep an alignment
 max.alignment.gap.percent = 50
 #run the trimming program TAPER to trim out unalignment sample segments
@@ -118,14 +92,15 @@ min.external.percent = 50
 #TRUE = to trim samples below a certain coverage (percent bases present out of total alignment) threshold
 trim.coverage = TRUE
 #The minimum percent of bases that must be present to keep a sample
-min.coverage.percent = 35
+min.coverage.percent = 30
 #The minimum number of bases that must be present to keep a sample
-min.coverage.bp = 60
+min.coverage.bp = 10
+
 
 #Tree settings
 #########################
 #TRUE = to estimate gene trees for each alignment
-estimate.gene.trees = TRUE
+estimate.gene.trees = FALSE
 #The minimum number of taxa to keep a gene tree
 min.taxa.tree = 4
 #TRUE = Clean up iqtree files except the ML tree
@@ -135,7 +110,6 @@ cleanup.genetrees = TRUE #Only saves the ML tree; FALSE saves all IQTree files f
 #########################
 ### *** Modify any of these from NULL to the path that the program is found if R is not detecting system paths
 ### e.g. fastp.path = "/conda/PhyloCap/bin
-fastp.path = "/Users/chutter/conda/PhyloCap/bin"
 samtools.path = "/Users/chutter/conda/PhyloCap/bin"
 bwa.path = "/Users/chutter/conda/PhyloCap/bin"
 spades.path = "/Users/chutter/conda/PhyloCap/bin"
@@ -144,7 +118,7 @@ blast.path = "/Users/chutter/conda/PhyloCap/bin"
 mafft.path = "/Users/chutter/conda/PhyloCap/bin"
 iqtree.path = "/Users/chutter/conda/PhyloCap/bin"
 trimAl.path = "/Users/chutter/conda/PhyloCap/bin"
-taper.path = "/Users/chutter/conda/PhyloCap/bin"
-julia.path = "/Users/chutter/conda/PhyloCap/bin"
+tRNAscan.path = "/Users/chutter/conda/PhyloCap/bin"
+cap3.path = "/Users/chutter/conda/PhyloCap/bin"
 
 #### End configuration

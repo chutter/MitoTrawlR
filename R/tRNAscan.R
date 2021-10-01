@@ -30,7 +30,7 @@
 
 ### Annotate tRNAs
 tRNAscan = function(contigs = NULL,
-                    tRNAscan.path = "tRNAscan-SE",
+                    tRNAscan.path = NULL,
                     organism.type = c("mammal", "vertebrate", "eukaryotic"),
                     quiet = TRUE) {
 
@@ -39,6 +39,13 @@ tRNAscan = function(contigs = NULL,
   # organism.type = "vertebrate"
   # quiet = TRUE
   # tRNAscan.path = trnascan.path
+
+  if (is.null(tRNAscan.path) == FALSE){
+    b.string = unlist(strsplit(tRNAscan.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      tRNAscan.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { tRNAscan.path = "" }
 
   if (is.null(organism.type) == TRUE){ stop("Please select an organism type.") }
 
@@ -53,11 +60,11 @@ tRNAscan = function(contigs = NULL,
 
   #Writes contigs for cap3
   write.loci = as.list(as.character(contigs))
-  writeFasta(sequences = write.loci, names = names(write.loci),
+  PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
              "temp-trna/input_contigs.fa", nbchar = 1000000, as.string = T)
 
   #Runs tRNA scan
-  system(paste0(tRNAscan.path, " ", org.string, " -o temp-trna/output_trnascan.txt",
+  system(paste0(tRNAscan.path, "tRNAscan-SE ", org.string, " -o temp-trna/output_trnascan.txt",
                 " temp-trna/input_contigs.fa"))
 
   #Load in tRNAscan data

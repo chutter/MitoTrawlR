@@ -32,7 +32,7 @@
 tRNAscanBatch = function(genome.dir = NULL,
                          genbank.file = NULL,
                          out.dir = "tRNAscan",
-                         tRNAscan.path = "tRNAscan-SE",
+                         tRNAscan.path = NULL,
                          organism.type = c("mammal", "vertebrate", "eukaryotic"),
                          overwrite = FALSE,
                          quiet = TRUE) {
@@ -44,6 +44,13 @@ tRNAscanBatch = function(genome.dir = NULL,
   # organism.type = "vertebrate"
   # overwrite = TRUE
   # tRNAscan.path = trnascan.path
+
+  if (is.null(tRNAscan.path) == FALSE){
+    b.string = unlist(strsplit(tRNAscan.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      tRNAscan.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { tRNAscan.path = "" }
 
   #Checks for output directory and overwriting
   if (dir.exists(out.dir) == FALSE) { dir.create(out.dir) }
@@ -76,7 +83,7 @@ tRNAscanBatch = function(genome.dir = NULL,
     output.name = paste0(out.dir, "/", spp.samples[i], "_trnascan.txt")
 
     #Runs tRNA scan
-    system(paste0(tRNAscan.path, " ", org.string, " -o ", output.name, " ",
+    system(paste0(tRNAscan.path, "tRNAscan-SE ", org.string, " -o ", output.name, " ",
                   input.file ))
 
     #Load in tRNAscan data

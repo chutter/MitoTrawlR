@@ -32,13 +32,21 @@
 markerAlignment = function(input.folder = NULL,
                            reference.name = NULL,
                            threads = 1,
+                           mafft.path = NULL,
                            overwrite = TRUE){
 
   #Debug
-  # input.folder = "Annotations/sample-fastas"
-  # genbank.file = "Crocidura.gb"
-  # threads = 4
-  # overwrite = TRUE
+  #input.folder = "Annotations/sample-markers"
+  #reference.name = "Reference"
+  #threads = 4
+  #overwrite = TRUE
+
+  if (is.null(mafft.path) == FALSE){
+    b.string = unlist(strsplit(mafft.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      mafft.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { mafft.path = "" }
 
   #Checks for overwrite
   if (dir.exists("Alignments") == FALSE) { dir.create("Alignments") }
@@ -67,7 +75,7 @@ markerAlignment = function(input.folder = NULL,
   }#end dir exists
 
   #Sets up the loci to align
-  ref.data = Rsamtools::scanFa(Rsamtools::FaFile(paste0(reference.name, "/refMarkers.fa")))
+  ref.data = Biostrings::readDNAStringSet(paste0(reference.name, "/refMarkers.fa"))
 
   #Gets the samples
   spp.samples = list.files(input.folder)
@@ -77,7 +85,7 @@ markerAlignment = function(input.folder = NULL,
   final.contigs = Biostrings::DNAStringSet()
   for (i in 1:length(spp.samples)){
     #Loads file
-    spp.data =Rsamtools::scanFa(Rsamtools::FaFile(paste0(input.folder, "/", spp.samples[i])))   # loads up fasta file
+    spp.data = Biostrings::readDNAStringSet(paste0(input.folder, "/", spp.samples[i]))   # loads up fasta file
     #saves
     final.contigs = append(final.contigs, spp.data)
   }#end j loop
@@ -88,7 +96,8 @@ markerAlignment = function(input.folder = NULL,
     #STEP 1: Sets up for alignment
     ##############
     #Checks for a minimum length
-    sample.markers = final.contigs[grep(paste0(names(ref.data)[i], "$"), names(final.contigs))]
+    temp.name = gsub(".*_tRNA_", "", names(ref.data)[i])
+    sample.markers = final.contigs[grep(paste0(temp.name, "$"), names(final.contigs))]
 
     #Checks for minimum taxa number
     if (length(names(sample.markers)) <= 2){
@@ -102,23 +111,22 @@ markerAlignment = function(input.folder = NULL,
     final.save = as.list(as.character(align.data))
 
     #Saves to folder to run with mafft
-    writeFasta(sequences = final.save, names = names(final.save),
+    PhyloCap::writeFasta(sequences = final.save, names = names(final.save),
                paste0("Alignments/unaligned-markers/", names(ref.data)[i], ".fa"), nbchar = 1000000, as.string = T)
 
     ##############
     #STEP 3: Runs MAFFT to align
     ##############
-    mafft.cmd = "mafft"
     # if (names(ref.data)[i] == "12S_rRNA" || names(ref.data)[i] == "16S_rRNA"){
     #   if (secondary.structure == TRUE){ mafft.cmd<-"mafft-qinsi" } else { mafft.cmd<-"mafft" }
     # }
     #
     #Runs the mafft command
-    system(paste0(mafft.cmd, " --localpair --maxiterate 1000 --adjustdirection --quiet --op 3 --ep 0.123",
+    system(paste0(mafft.path, "mafft --localpair --maxiterate 1000 --adjustdirection --quiet --op 3 --ep 0.123",
                   " --thread ", threads, " ", "Alignments/unaligned-markers/", names(ref.data)[i], ".fa",
                   " > ", "Alignments/unaligned-markers/", names(ref.data)[i], "_align.fa"))
 
-    alignment = Rsamtools::scanFa(Rsamtools::FaFile(paste0("Alignments/unaligned-markers/", names(ref.data)[i], "_align.fa")))   # loads up fasta file
+    alignment = Biostrings::readDNAStringSet(paste0("Alignments/unaligned-markers/", names(ref.data)[i], "_align.fa"))   # loads up fasta file
 
     #Reverses alignment back to correction orientation
     reversed = names(alignment)[grep(pattern = "_R_", names(alignment))]
@@ -128,16 +136,66 @@ markerAlignment = function(input.folder = NULL,
     names(alignment) = gsub(pattern = "_R_", replacement = "", x = names(alignment))
     names(alignment) = gsub(pattern = "_\\|_.*", replacement = "", x = names(alignment))
 
-    new.align = strsplit(as.character(alignment), "")
+    #Finds the alignemnt pairwise distance from the target
+    dist.data = PhyloCap::pairwiseDistanceTarget(alignment = alignment, target = "Reference")
+    good.seqs = which(dist.data <= 0.40)
+    rem.align = alignment[as.numeric(good.seqs),]
+    rem.align = rem.align[!duplicated(names(rem.align))]
+
+    #Sort by length
+    #c.align = strsplit(as.character(rem.align), "")
+    #gap.align = lapply(c.align, function(x) gsub("N|n", "-", x) )
+    #base.count = unlist(lapply(gap.align, function(x) length(x[x != "-"]) ) )
+
+    # Moves onto next loop in there are no good sequences
+    if (length(rem.align) <= 2){
+      print(paste(names(ref.data)[i], " had too few taxa", sep = ""))
+      next }
+
+    ### realign if bad seqs removed
+    if (length(good.seqs) != length(alignment)){
+      final.save = as.list(as.character(rem.align))
+
+      #Saves to folder to run with mafft
+      PhyloCap::writeFasta(sequences = final.save, names = names(final.save),
+                           paste0("Alignments/unaligned-markers/", names(ref.data)[i], ".fa"), nbchar = 1000000, as.string = T)
+
+      ##############
+      #STEP 3: Runs MAFFT to align
+      ##############
+      # if (names(ref.data)[i] == "12S_rRNA" || names(ref.data)[i] == "16S_rRNA"){
+      #   if (secondary.structure == TRUE){ mafft.cmd<-"mafft-qinsi" } else { mafft.cmd<-"mafft" }
+      # }
+      #
+      #Runs the mafft command
+      system(paste0(mafft.path, "mafft --localpair --maxiterate 1000 --adjustdirection --quiet --op 3 --ep 0.123",
+                    " --thread ", threads, " ", "Alignments/unaligned-markers/", names(ref.data)[i], ".fa",
+                    " > ", "Alignments/unaligned-markers/", names(ref.data)[i], "_align.fa"))
+
+      alignment = Biostrings::readDNAStringSet(paste0("Alignments/unaligned-markers/", names(ref.data)[i], "_align.fa"))   # loads up fasta file
+
+      #Reverses alignment back to correction orientation
+      reversed = names(alignment)[grep(pattern = "_R_", names(alignment))]
+      if (length(reversed[grep(pattern = "Reference", reversed)]) == 1){ alignment = Biostrings::reverseComplement(alignment) }
+
+      #Renames sequences to get rid of _R_
+      names(alignment) = gsub(pattern = "_R_", replacement = "", x = names(alignment))
+      names(alignment) = gsub(pattern = "_\\|_.*", replacement = "", x = names(alignment))
+      rem.align = alignment[!duplicated(names(alignment))]
+
+    } # end bad.seqs if
+
+    #preapreas to save
+    new.align = strsplit(as.character(rem.align), "")
     mat.align = lapply(new.align, tolower)
     m.align = as.matrix(ape::as.DNAbin(mat.align))
 
     #Trims to reference
-    ref.aligned = as.character(alignment['Reference'])
+    ref.aligned = as.character(rem.align['Reference'])
     not.gaps = stringr::str_locate_all(ref.aligned, pattern = "[^-]")[[1]][,1]
     ref.start = min(not.gaps)
     ref.finish = max(not.gaps)
-    trim.align = Biostrings::subseq(alignment, ref.start, ref.finish)
+    trim.align = Biostrings::subseq(rem.align, ref.start, ref.finish)
     trim.align = trim.align[names(trim.align) != "Reference"]
 
     ### Add in edge Ns
@@ -167,7 +225,7 @@ markerAlignment = function(input.folder = NULL,
 
     #readies for saving
     aligned.set = as.matrix(ape::as.DNAbin(align.list) )
-    writePhylip(aligned.set, file=paste0("Alignments/untrimmed-alignments/", names(ref.data)[i], ".phy"), interleave = F)
+    PhyloCap::writePhylip(aligned.set, file=paste0("Alignments/untrimmed-alignments/", names(ref.data)[i], ".phy"), interleave = F)
     system(paste0("rm Alignments/unaligned-markers/", names(ref.data)[i], "_align.fa"))
   }#end i loop
 

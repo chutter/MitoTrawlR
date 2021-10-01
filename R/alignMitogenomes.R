@@ -27,19 +27,19 @@
 #' @export
 
 alignMitogenomes = function(alignment.folder = NULL,
-                            genbank.file = NULL,
                             draft.contigs = "draftContigs",
-                            output.dir = "Genomes",
-                            dataset.name = "untrimmed",
+                            reference.name = "reference",
+                            output.dir = "MitoGenomes",
+                            dataset.name = "alignments",
                             overwrite = FALSE) {
 
   #Debug
-  # alignment.folder = "Alignments/untrimmed-alignments"
-  # genbank.file = "Crocidura.gb"
-  # draft.contigs = "draftContigs"
-  # output.dir = "Genomes"
-  # dataset.name = "untrimmed"
-  # overwrite = TRUE
+   # alignment.folder = "Alignments/untrimmed-alignments"
+   # reference.name = "reference"
+   # draft.contigs = "draftContigs"
+   # output.dir = "MitoGenomes"
+   # dataset.name = "untrimmed"
+   # overwrite = TRUE
 
   if (dir.exists(output.dir) == FALSE) { dir.create(output.dir) }
   if (dir.exists(output.dir) == TRUE) {
@@ -56,16 +56,11 @@ alignMitogenomes = function(alignment.folder = NULL,
   sample.names = gsub(".fa$", "", sample.names)
 
   #Create new direcotires
-  dir.create(paste0(output.dir, "/alignments"))
-  dir.create(paste0(output.dir, "/sample-genomes"))
-
-  #Makes reference for blasting
-  makeReference(genbank.file = genbank.file,
-                overwrite = TRUE,
-                rep.origin = FALSE)
+  if (dir.exists(paste0(output.dir, "/alignments")) == FALSE) { dir.create(paste0(output.dir, "/alignments")) }
+  if (dir.exists(paste0(output.dir, "/sample-genomes")) == FALSE) { dir.create(paste0(output.dir, "/sample-genomes")) }
 
   #Sets up the loci to align
-  ref.data = Rsamtools::scanFa(Rsamtools::FaFile("Mito-Reference/refMarkers.fa"))
+  ref.data = Biostrings::readDNAStringSet(paste0(reference.name, "/refMarkers.fa"))
 
   #Header data for features and whatnot
   header.data = c("Sample",  locus.names)
@@ -92,14 +87,17 @@ alignMitogenomes = function(alignment.folder = NULL,
     align = Biostrings::DNAStringSet(Biostrings::readAAMultipleAlignment(file = paste0(alignment.folder, "/", locus.names[i], ".phy"), format = "phylip"))
 
     #Gathers reference
-    ref.temp = ref.data[names(ref.data) %in% locus.names[i]]
-    align.data = append(align, ref.temp)
-    names(align.data)[length(align.data)] = "Reference"
+    ref.seq = ref.data[names(ref.data) %in% locus.names[i]]
+    names(ref.seq) = "Reference"
 
-    new.align = runMafft(sequence.data = align.data,
-                         add.contigs = ref.seq,
-                         adjust.direction = T,
-                         threads = 1)
+    new.align = PhyloCap::runMafft(sequence.data = align,
+                                   add.contigs = ref.seq,
+                                   algorithm = "add",
+                                   adjust.direction = T,
+                                   threads = 1,
+                                   cleanup.files = T,
+                                   mafft.path = mafft.path,
+                                   quiet = F)
 
     #Use taxa remove
     mat.align = strsplit(as.character(new.align), "")
@@ -170,7 +168,7 @@ alignMitogenomes = function(alignment.folder = NULL,
   write.csv(collect.data.pr, file = paste0("logs/", dataset.name, "_mito-alignment_bp-prop.csv"),  row.names = F)
 
   write.genome = as.matrix(ape::as.DNAbin(draft.genome) )
-  writePhylip(write.genome, file= paste0(output.dir, "/alignments/", dataset.name, "_mitogenome_alignment.phy"), interleave = F)
+  PhyloCap::writePhylip(write.genome, file= paste0(output.dir, "/alignments/", dataset.name, "_mitogenome_alignment.phy"), interleave = F)
   write.table(feature.data, file = paste0(output.dir, "/alignments/", dataset.name, "_alignment_feature_table.txt"),  row.names = F, quote = F)
 
 }#end function

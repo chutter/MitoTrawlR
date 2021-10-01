@@ -29,17 +29,19 @@
 buildMitogenomes = function(annotation.dir = "Annotations",
                             alignment.folder = "Alignments/untrimmed-alignments",
                             genome.alignment = "Genomes/alignments/untrimmed_mitogenome_alignment.phy",
-                            genome.dir = "Genomes",
+                            genome.dir = "MitoGenomes",
+                            reference.name = "reference",
                             output.dir = NULL,
                             overwrite = FALSE) {
 
   #Debug
   # alignment.folder = "Alignments/untrimmed-alignments"
-  # genome.dir = "Genomes"
-  # annotation.dir = "Annotations"
-  # genome.alignment = "Genomes/alignments/untrimmed_mitogenome_alignment.phy"
-  # output.dir = "untrimmed-finished"
-  # overwrite = FALSE
+  #  genome.dir = "MitoGenomes"
+  #  annotation.dir = "Annotations"
+  #  genome.alignment = "MitoGenomes/alignments/untrimmed_mitogenome_alignment.phy"
+  #  output.dir = "untrimmed-finished"
+  #  overwrite = FALSE
+  #  reference.name = "reference"
 
   #Prepares output directoires
   output.dir = paste0(genome.dir, "/", output.dir)
@@ -62,7 +64,7 @@ buildMitogenomes = function(annotation.dir = "Annotations",
   #             rep.origin = FALSE)
 
   #Read in reference and alignment
-  ref.data = Rsamtools::scanFa(Rsamtools::FaFile("Mito-Reference/refMarkers.fa"))
+  ref.data = Biostrings::readDNAStringSet(paste0(reference.name, "/refMarkers.fa"))
   gen.align = Biostrings::DNAStringSet(Biostrings::readAAMultipleAlignment(file = genome.alignment, format = "phylip"))
   sample.names = names(gen.align)
   locus.names = names(ref.data)
@@ -84,7 +86,7 @@ buildMitogenomes = function(annotation.dir = "Annotations",
     #n.count = sum(stringr::str_count(as.character(sample.align), "N"))
     # if (n.count >= (length(sample.align) * 0.90)){ next }
     #contigs = Rsamtools::scanFa(Rsamtools::FaFile(paste0(annotation.dir, "/sample-markers/", sample.names[i], "_sampleMarkers.fa")))   # loads up fasta file
-    contigs = Rsamtools::scanFa(Rsamtools::FaFile(paste0(annotation.dir, "/sample-contigs/", sample.names[i], "_sampleContigs.fa")))   # loads up fasta file
+    contigs = Biostrings::readDNAStringSet(paste0(annotation.dir, "/sample-contigs/", sample.names[i], "_sampleContigs.fa"))   # loads up fasta file
     n.fragments = length(contigs)
 
     ##################################
@@ -93,8 +95,8 @@ buildMitogenomes = function(annotation.dir = "Annotations",
     sample.align = gen.align[names(gen.align) %in% sample.names[i]]
     stand.order = as.list(as.character(sample.align))
     #Saves to folder the standard order one already made
-    writeFasta(sequences = stand.order, names = names(stand.order),
-               paste0("Genomes/reference-order/", sample.names[i], "_referenceOrder.fa"),
+    PhyloCap::writeFasta(sequences = stand.order, names = names(stand.order),
+               paste0("MitoGenomes/reference-order/", sample.names[i], "_referenceOrder.fa"),
                nbchar = 1000000, as.string = T)
 
     ##################################

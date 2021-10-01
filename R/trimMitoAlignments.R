@@ -52,198 +52,262 @@
 #'
 #' @export
 
-trimMitoAlignments = function(alignment.dir = "Alignments/untrimmed-alignments",
+trimMitoAlignments = function(alignment.dir = NULL,
                               alignment.format = "phylip",
-                              output.dir = "Alignments/trimmed-alignments",
+                              output.dir = NULL,
                               output.format = "phylip",
-                              sample.similiarity = TRUE,
-                              TrimAl = TRUE,
-                              TrimAl.path = "trimal",
+                              TAPER = FALSE,
+                              TAPER.path = NULL,
+                              julia.path = NULL,
+                              TrimAl = FALSE,
+                              TrimAl.path = NULL,
                               trim.external = TRUE,
                               min.external.percent = 50,
                               trim.coverage = TRUE,
                               min.coverage.percent = 50,
                               trim.column = TRUE,
                               min.column.gap.percent = 100,
+                              convert.ambiguous.sites = FALSE,
                               alignment.assess = TRUE,
-                              min.sample.bp = 0,
-                              min.align.length = 0,
-                              min.taxa.count = 0,
-                              min.gap.percent = 0,
-                              overwrite = FALSE) {
+                              min.coverage.bp = 0,
+                              min.alignment.length = 0,
+                              min.taxa.alignment = 0,
+                              max.alignment.gap.percent = 0,
+                              threads = 1,
+                              memory = 1,
+                              overwrite = FALSE,
+                              resume = TRUE) {
 
-
-  # alignment.dir = "Alignments/untrimmed-alignments"
-  # output.dir = "Alignments/trimmed-alignments"
+  # #devtools::install_github("chutter/PHYLOCAP", upgrade = "never")
+  # library(PhyloCap)
+  # library(foreach)
+  #
+  #
+  # #Save directory
+  # #work.dir = "/Volumes/Rodents/Murinae/Trimming"
+  # #align.dir = "/Volumes/Rodents/Murinae/Trimming/genes-untrimmed"
+  # #feat.gene.names = "/Volumes/Rodents/Murinae/Selected_Transcripts/Mus_gene_metadata.csv"
+  # #work.dir = "/home/c111h652/scratch/Rodents/Trimming"
+  #
+  # work.dir = "/home/c111h652/scratch/Rodents/Trimming"
+  # align.dir = "/home/c111h652/scratch/Rodents/Trimming/Emily/genes_untrimmed"
+  #
+  # work.dir = "/Volumes/Rodents/Murinae/Trimming"
+  # align.dir =  "/Volumes/Rodents/Murinae/Trimming/Emily/genes_untrimmed"
+  # out.name = "Emily"
+  #
+  #
+  # setwd(work.dir)
+  # alignment.dir = align.dir
+  # output.dir = paste0(out.name, "/genes_trimmed2")
   # alignment.format = "phylip"
   # output.format = "phylip"
+  # TAPER = TRUE
+  # TAPER.path = "/usr/local/bin"
+  # julia.path = "/Applications/Julia-1.6.app/Contents/Resources/julia/bin"
+  # #TAPER.path = "/home/c111h652/programs"
+  # #julia.path = "/programs/julia/bin"
   # TrimAl = TRUE
-  # trim.column = TRUE
-  # alignment.assess = TRUE
+  # TrimAl.path = "/Users/chutter/miniconda3/bin"
   # trim.external = TRUE
-  # trim.coverage = TRUE
-  # min.coverage.percent = 30
   # min.external.percent = 50
-  # min.column.gap.percent = 100
-  # overwrite = TRUE
-  # min.align.length = 10
-  # min.taxa.count = 12
-  # min.gap.percent = 50
-  # min.sample.bp = 10
-  # sample.similiarity = TRUE
+  # trim.coverage = TRUE
+  # min.coverage.percent = 35
+  # trim.column = TRUE
+  # min.column.gap.percent = 50
+  # convert.ambiguous.sites = FALSE
+  # alignment.assess = TRUE
+  # min.coverage.bp = 60
+  # min.alignment.length = 100
+  # min.taxa.alignment = 5
+  # max.alignment.gap.percent = 50
+  # threads = 2
+  # memory = 6
+  # overwrite = FALSE
+  # resume = TRUE
+
+  if (is.null(TrimAl.path) == FALSE){
+    b.string = unlist(strsplit(TrimAl.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      TrimAl.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { TrimAl.path = NULL }
 
   if (alignment.dir == output.dir){ stop("You should not overwrite the original alignments.") }
 
-  if (dir.exists(output.dir) == FALSE) { dir.create(output.dir) }
+  # if (dir.exists(output.dir) == FALSE) { dir.create(output.dir) }
+
+  #So I don't accidentally delete everything while testing resume
+  if (resume == TRUE & overwrite == TRUE){
+    overwrite = FALSE
+    stop("Error: resume = T and overwrite = T, cannot resume if you are going to delete everything!")
+  }
+
   if (dir.exists(output.dir) == TRUE) {
     if (overwrite == TRUE){
       system(paste0("rm -r ", output.dir))
       dir.create(output.dir)
     }
-  }#end dir exists
+  } else { dir.create(output.dir) }
 
   #Gathers alignments
   align.files = list.files(alignment.dir)
 
+  if (length(align.files) == 0) { stop("alignment files could not be found.") }
+
+  #Skips files done already if resume = TRUE
+  if (resume == TRUE){
+    done.files = list.files(output.dir)
+    align.files = align.files[!gsub("\\..*", "", align.files) %in% gsub("\\..*", "", done.files)]
+  }
+
+  if (length(align.files) == 0) { stop("All alignments have already been completed and overwrite = FALSE.") }
+
   #Data to collect
-  header.data = c("Alignment", "Pass", "startSamples", "simSamples", "trimalSamples",
-                  "edgeSamples", "covSamples", "columnSamples",
-                  "startLength", "simLength", "trimalLength",
-                  "edgeLength", "covLength", "columnLength",
-                  "startBasepairs", "simBasepairs", "trimalBasepairs",
-                  "edgeBasepairs", "covBasepairs", "columnBasepairs",
-                  "startGaps","simGaps", "trimalGaps",
-                  "edgeGaps", "covGaps", "columnGaps",
-                  "startPerGaps", "simPerGaps", "trimalPerGaps",
-                  "edgePerGaps", "covPerGaps", "columnPerGaps")
+  header.data = c("Alignment", "Pass", "startSamples", "trimalSamples",
+                  "edgeSamples", "columnSamples", "covSamples",
+                  "startLength",  "trimalLength",
+                  "edgeLength", "columnLength", "covLength",
+                  "startBasepairs", "tapirBasepairs", "trimalBasepairs",
+                  "edgeBasepairs", "columnBasepairs", "covBasepairs",
+                  "startGaps", "trimalGaps",
+                  "edgeGaps", "columnGaps", "covGaps",
+                  "startPerGaps", "trimalPerGaps",
+                  "edgePerGaps", "columnPerGaps", "covPerGaps")
 
   save.data = data.table::data.table(matrix(as.double(0), nrow = length(align.files), ncol = length(header.data)))
   data.table::setnames(save.data, header.data)
   save.data[, Alignment:=as.character(Alignment)]
   save.data[, Pass:=as.logical(Pass)]
 
-  #Loops through each alignment
+  #Sets up multiprocessing
+  #cl = parallel::makeCluster(threads, outfile = "")
+  #doParallel::registerDoParallel(cl)
+  #mem.cl = floor(memory/threads)
+
+  #Loops through each locus and does operations on them
+  #save.data = foreach::foreach(i=1:length(align.files), .combine = rbind, .packages = c("PhyloCap", "foreach", "Biostrings","Rsamtools", "ape", "stringr", "data.table")) %dopar% {
   for (i in 1:length(align.files)){
     print(paste0(align.files[i], " Starting..."))
 
     #Load in alignments
     if (alignment.format == "phylip"){
       align = Biostrings::readAAMultipleAlignment(file = paste0(alignment.dir, "/", align.files[i]), format = "phylip")
+
+      #  align = Biostrings::readDNAStringSet(file = paste0(alignment.dir, "/", align.files[i]), format = "phylip")
+      #  align = readLines(paste0(alignment.dir, "/", align.files[i]))[-1]
+      #  align = gsub(".*\\ ", "", align)
+      #  char.count = nchar(align)
+
       align = Biostrings::DNAStringSet(align)
       save.name = gsub(".phy$", "", align.files[i])
       save.name = gsub(".phylip$", "", save.name)
     }#end phylip
 
     if (alignment.format == "fasta"){
-      align = Rsamtools::scanFa(Rsamtools::FaFile(paste0(alignment.dir, "/", align.files[i])))   # loads up fasta file
+      align = Biostrings::readDNAStringSet(paste0(alignment.dir, "/", align.files[i]) )
       save.name = gsub(".fa$", "", align.files[i])
       save.name = gsub(".fasta$", "", save.name)
     }#end phylip
 
     # Runs the functions
     #######
-    # #Step 1: Strip Ns
-    # non.align = replaceAlignmentCharacter(alignment = align,
-    #                                       char.find = "N",
-    #                                       char.replace = "-")
+    #Step 1: Strip Ns
+    non.align = PhyloCap::replaceAlignmentCharacter(alignment = align,
+                                          char.find = "N",
+                                          char.replace = "-")
 
-    non.align = align
+    #Convert ambiguous sites
+    if (convert.ambiguous.sites == TRUE){
+      non.align = PhyloCap::convertAmbiguousConsensus(alignment = non.align)
+    }#end phylip
+
+
     #Summarize all this, no functoin
-    data.table::set(save.data, i = as.integer(i), j = match("Alignment", header.data), value = save.name)
-    data.table::set(save.data, i = as.integer(i), j = match("startSamples", header.data), value = length(non.align))
-    data.table::set(save.data, i = as.integer(i), j = match("startLength", header.data), value = Biostrings::width(non.align)[1] )
-    gap.count = countAlignmentGaps(non.align)
-    data.table::set(save.data, i = as.integer(i), j = match("startBasepairs", header.data), value = gap.count[2] - gap.count[1])
-    data.table::set(save.data, i = as.integer(i), j = match("startGaps", header.data), value = gap.count[1])
-    data.table::set(save.data, i = as.integer(i), j = match("startPerGaps", header.data), value = gap.count[3])
-
-    #Step 2. slice trimming
-    if (sample.similiarity == TRUE){
-
-      sample.align = trimSampleSimilarity(alignment = non.align,
-                                          similarity.threshold = 0.4,
-                                          realign.mafft = TRUE)
-      non.align = sample.align
-      #Saves stat data
-      data.table::set(save.data, i = as.integer(i), j = match("simSamples", header.data), value = length(non.align))
-      data.table::set(save.data, i = as.integer(i), j = match("simLength", header.data), value = Biostrings::width(non.align)[1])
-      gap.count = countAlignmentGaps(non.align)
-      data.table::set(save.data, i = as.integer(i), j = match("simBasepairs", header.data), value = gap.count[2] - gap.count[1])
-      data.table::set(save.data, i = as.integer(i), j = match("simGaps", header.data), value = gap.count[1])
-      data.table::set(save.data, i = as.integer(i), j = match("simPerGaps", header.data), value = gap.count[3])
-    }#end if
+    data.table::set(save.data, i = as.integer(1), j = match("Alignment", header.data), value = save.name)
+    data.table::set(save.data, i = as.integer(1), j = match("startSamples", header.data), value = length(non.align))
+    data.table::set(save.data, i = as.integer(1), j = match("startLength", header.data), value = Biostrings::width(non.align)[1] )
+    gap.count = PhyloCap::countAlignmentGaps(non.align)
+    data.table::set(save.data, i = as.integer(1), j = match("startBasepairs", header.data), value = gap.count[2] - gap.count[1])
+    data.table::set(save.data, i = as.integer(1), j = match("startGaps", header.data), value = gap.count[1])
+    data.table::set(save.data, i = as.integer(1), j = match("startPerGaps", header.data), value = gap.count[3])
 
     #Step 3. Trimal trimming
-    if (TrimAl == TRUE){
+    if (TrimAl == TRUE && length(non.align) != 0){
 
-      trimal.align = trimTrimal(alignment = non.align,
+      trimal.align = PhyloCap::trimTrimal(alignment = non.align,
+                                trimal.path = TrimAl.path,
                                 quiet = TRUE)
       non.align = trimal.align
-
       #Saves stat data
-      data.table::set(save.data, i = as.integer(i), j = match("trimalSamples", header.data), value = length(non.align))
-      data.table::set(save.data, i = as.integer(i), j = match("trimalLength", header.data), value = Biostrings::width(non.align)[1])
-      gap.count = countAlignmentGaps(non.align)
-      data.table::set(save.data, i = as.integer(i), j = match("trimalBasepairs", header.data), value = gap.count[2] - gap.count[1])
-      data.table::set(save.data, i = as.integer(i), j = match("trimalGaps", header.data), value = gap.count[1])
-      data.table::set(save.data, i = as.integer(i), j = match("trimalPerGaps", header.data), value = gap.count[3])
+      data.table::set(save.data, i = as.integer(1), j = match("trimalSamples", header.data), value = length(trimal.align))
+      data.table::set(save.data, i = as.integer(1), j = match("trimalLength", header.data), value = Biostrings::width(trimal.align)[1])
+      gap.count = PhyloCap::countAlignmentGaps(non.align)
+      data.table::set(save.data, i = as.integer(1), j = match("trimalBasepairs", header.data), value = gap.count[2] - gap.count[1])
+      data.table::set(save.data, i = as.integer(1), j = match("trimalGaps", header.data), value = gap.count[1])
+      data.table::set(save.data, i = as.integer(1), j = match("trimalPerGaps", header.data), value = gap.count[3])
     }#end if
 
     # Step 4. Edge trimming
-    if (trim.external == TRUE){
+    if (trim.external == TRUE && length(non.align) != 0){
       #external trimming function
-      edge.align = trimExternal(alignment = non.align,
+      edge.align = PhyloCap::trimExternal(alignment = non.align,
                                 min.n.seq = ceiling(length(non.align) * (min.external.percent/100)),
                                 codon.trim = F)
+
+      if (class(edge.align) == "numeric") { edge.align = DNAStringSet() }
       non.align = edge.align
+
       #Saves stat data
-      data.table::set(save.data, i = as.integer(i), j = match("edgeSamples", header.data), value = length(non.align))
-      data.table::set(save.data, i = as.integer(i), j = match("edgeLength", header.data), value = Biostrings::width(non.align)[1])
-      gap.count = countAlignmentGaps(non.align)
-      data.table::set(save.data, i = as.integer(i), j = match("edgeBasepairs", header.data), value = gap.count[2] - gap.count[1])
-      data.table::set(save.data, i = as.integer(i), j = match("edgeGaps", header.data), value = gap.count[1])
-      data.table::set(save.data, i = as.integer(i), j = match("edgePerGaps", header.data), value = gap.count[3])
+      data.table::set(save.data, i = as.integer(1), j = match("edgeSamples", header.data), value = length(edge.align))
+      data.table::set(save.data, i = as.integer(1), j = match("edgeLength", header.data), value = Biostrings::width(edge.align)[1])
+      gap.count = PhyloCap::countAlignmentGaps(non.align)
+      data.table::set(save.data, i = as.integer(1), j = match("edgeBasepairs", header.data), value = gap.count[2] - gap.count[1])
+      data.table::set(save.data, i = as.integer(1), j = match("edgeGaps", header.data), value = gap.count[1])
+      data.table::set(save.data, i = as.integer(1), j = match("edgePerGaps", header.data), value = gap.count[3])
     }#end trim external
 
-    #Step 5. Evaluate and cut out each sample
-    if (trim.coverage == TRUE){
-      #sample coverage function
-      cov.align = trimSampleCoverage(alignment = non.align,
-                                     min.coverage.percent = min.coverage.percent,
-                                     min.sample.bp = min.sample.bp,
-                                     relative.width = "sample")
-      non.align = cov.align
-      #Saves stat data
-      data.table::set(save.data, i = as.integer(i), j = match("covSamples", header.data), value = length(non.align))
-      data.table::set(save.data, i = as.integer(i), j = match("covLength", header.data), value = Biostrings::width(non.align)[1])
-      gap.count = countAlignmentGaps(non.align)
-      data.table::set(save.data, i = as.integer(i), j = match("covBasepairs", header.data), value = gap.count[2] - gap.count[1])
-      data.table::set(save.data, i = as.integer(i), j = match("covGaps", header.data), value = gap.count[1])
-      data.table::set(save.data, i = as.integer(i), j = match("covPerGaps", header.data), value = gap.count[3])
-    }#end trim.external
-
-    if (trim.column == TRUE){
+    if (trim.column == TRUE && length(non.align) != 0){
       #Trim alignment colums
-      col.align = trimAlignmentColumns(alignment = non.align,
+      col.align = PhyloCap::trimAlignmentColumns(alignment = non.align,
                                        min.gap.percent = min.column.gap.percent)
       non.align = col.align
       #Saves stat data
-      data.table::set(save.data, i = as.integer(i), j = match("columnSamples", header.data), value = length(non.align))
-      data.table::set(save.data, i = as.integer(i), j = match("columnLength", header.data), value = Biostrings::width(non.align)[1])
-      gap.count = countAlignmentGaps(non.align)
-      data.table::set(save.data, i = as.integer(i), j = match("columnBasepairs", header.data), value = gap.count[2] - gap.count[1])
-      data.table::set(save.data, i = as.integer(i), j = match("columnGaps", header.data), value = gap.count[1])
-      data.table::set(save.data, i = as.integer(i), j = match("columnPerGaps", header.data), value = gap.count[3])
+      data.table::set(save.data, i = as.integer(1), j = match("columnSamples", header.data), value = length(col.align))
+      data.table::set(save.data, i = as.integer(1), j = match("columnLength", header.data), value = Biostrings::width(col.align)[1])
+      gap.count = PhyloCap::countAlignmentGaps(non.align)
+      data.table::set(save.data, i = as.integer(1), j = match("columnBasepairs", header.data), value = gap.count[2] - gap.count[1])
+      data.table::set(save.data, i = as.integer(1), j = match("columnGaps", header.data), value = gap.count[1])
+      data.table::set(save.data, i = as.integer(1), j = match("columnPerGaps", header.data), value = gap.count[3])
     }#end trim column.
 
+    #Step 5. Evaluate and cut out each sample
+    if (trim.coverage == TRUE && length(non.align) != 0){
+      #sample coverage function
+      cov.align = PhyloCap::trimSampleCoverage(alignment = non.align,
+                                     min.coverage.percent = min.coverage.percent,
+                                     min.coverage.bp = min.coverage.bp,
+                                     relative.width = "sample")
+
+      non.align = cov.align
+      #Saves stat data
+      data.table::set(save.data, i = as.integer(1), j = match("covSamples", header.data), value = length(cov.align))
+      data.table::set(save.data, i = as.integer(1), j = match("covLength", header.data), value = Biostrings::width(cov.align)[1])
+      gap.count = PhyloCap::countAlignmentGaps(non.align)
+      data.table::set(save.data, i = as.integer(1), j = match("covBasepairs", header.data), value = gap.count[2] - gap.count[1])
+      data.table::set(save.data, i = as.integer(1), j = match("covGaps", header.data), value = gap.count[1])
+      data.table::set(save.data, i = as.integer(1), j = match("covPerGaps", header.data), value = gap.count[3])
+    }#end trim.external
+
+    #Step 6
     if (alignment.assess == TRUE) {
       #Assesses the alignment returning TRUE for pass and FALSE for fail
-      test.result = alignmentAssess(alignment = non.align,
-                                    min.gap.percent = min.gap.percent,
-                                    min.taxa.count = min.taxa.count,
-                                    min.align.length = min.align.length)
+      test.result = PhyloCap::alignmentAssess(alignment = non.align,
+                                    max.alignment.gap.percent = max.alignment.gap.percent,
+                                    min.taxa.alignment = min.taxa.alignment,
+                                    min.alignment.length = min.alignment.length)
 
-      data.table::set(save.data, i = as.integer(i), j = match("Pass", header.data), value = test.result)
+      data.table::set(save.data, i = as.integer(1), j = match("Pass", header.data), value = test.result)
 
       if (test.result == FALSE){
         print(paste0(align.files[i], " Failed and was discarded."))
@@ -251,26 +315,30 @@ trimMitoAlignments = function(alignment.dir = "Alignments/untrimmed-alignments",
         write.temp = strsplit(as.character(non.align), "")
         aligned.set = as.matrix(ape::as.DNAbin(write.temp) )
         #readies for saving
-        writePhylip(aligned.set, file= paste0(output.dir, "/", save.name, ".phy"), interleave = F)
+        PhyloCap::writePhylip(aligned.set, file= paste0(output.dir, "/", save.name, ".phy"), interleave = F)
       }#end else test result
     } else {
       #If no alignment assessing is done, saves
       write.temp = strsplit(as.character(non.align), "")
       aligned.set = as.matrix(ape::as.DNAbin(write.temp) )
       #readies for saving
-      writePhylip(aligned.set, file= paste0(output.dir, "/", save.name, ".phy"), interleave = F)
+      PhyloCap::writePhylip(aligned.set, file= paste0(output.dir, "/", save.name, ".phy"), interleave = F)
     }#end else
 
     print(paste0(align.files[i], " Completed."))
 
+    #rm()
+    #gc()
+
   }#end i loop
 
-  #Print and save summary table
-  write.csv(save.data, file = paste0("logs/trimming_sample_stats.csv"), row.names = F)
+ # parallel::stopCluster(cl)
 
+  #Print and save summary table
+  write.csv(save.data, file = paste0(output.dir, "_trimming-summary.csv"), row.names = F)
   #Saves log file of things
-  if (file.exists(paste0("logs/trimming_summary.log")) == TRUE){ system(paste0("rm logs/trimming_summary.log")) }
-  fileConn = file(paste0("logs/trimming_summary.log"), open = "w")
+  if (file.exists(paste0(output.dir, ".log")) == TRUE){ system(paste0("rm ", output.dir, ".log")) }
+  fileConn = file(paste0(output.dir, ".log"), open = "w")
   writeLines(paste0("Log file for ", output.dir), fileConn)
   writeLines(paste0("\n"), fileConn)
   writeLines(paste0("Overall trimming summary:"), fileConn)
@@ -307,17 +375,29 @@ trimMitoAlignments = function(alignment.dir = "Alignments/untrimmed-alignments",
   writeLines(paste0("Mean gap percentage: ",
                     mean(save.data$startPerGaps)), fileConn)
   writeLines(paste0(""), fileConn)
+  writeLines(paste0("hmmCleaner:"), fileConn)
+  writeLines(paste0("Mean samples removed: ",
+                    mean(save.data$startSamples - save.data$hmmSamples)), fileConn)
+  writeLines(paste0("Mean alignment length reduction: ",
+                    mean(save.data$startLength - save.data$hmmLength)), fileConn)
+  writeLines(paste0("Mean basepairs trimmed: ",
+                    mean(save.data$startBasepairs - save.data$hmmBasepairs)), fileConn)
+  writeLines(paste0("Mean gap change: ",
+                    mean(save.data$startGaps - save.data$hmmGaps)), fileConn)
+  writeLines(paste0("Mean gap percent change: ",
+                    mean(save.data$startPerGaps - save.data$hmmPerGaps)), fileConn)
+  writeLines(paste0(""), fileConn)
   writeLines(paste0("Trimal:"), fileConn)
   writeLines(paste0("Mean samples removed: ",
-                    mean(save.data$startSamples - save.data$trimalSamples)), fileConn)
+                    mean(save.data$hmmSamples - save.data$trimalSamples)), fileConn)
   writeLines(paste0("Mean alignment length reduction: ",
-                    mean(save.data$startLength - save.data$trimalLength)), fileConn)
+                    mean(save.data$hmmLength - save.data$trimalLength)), fileConn)
   writeLines(paste0("Mean basepairs trimmed: ",
-                    mean(save.data$startBasepairs - save.data$trimalBasepairs)), fileConn)
+                    mean(save.data$hmmBasepairs - save.data$trimalBasepairs)), fileConn)
   writeLines(paste0("Mean gap change: ",
-                    mean(save.data$startGaps - save.data$trimalGaps)), fileConn)
+                    mean(save.data$hmmGaps - save.data$trimalGaps)), fileConn)
   writeLines(paste0("Mean gap percent change: ",
-                    mean(save.data$startPerGaps - save.data$trimalPerGaps)), fileConn)
+                    mean(save.data$hmmPerGaps - save.data$trimalPerGaps)), fileConn)
   writeLines(paste0(""), fileConn)
   writeLines(paste0("External Trimming:"), fileConn)
   writeLines(paste0("Mean samples removed: ",
@@ -357,4 +437,3 @@ trimMitoAlignments = function(alignment.dir = "Alignments/untrimmed-alignments",
   close(fileConn)
 
 } #end function
-

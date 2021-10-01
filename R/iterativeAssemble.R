@@ -60,9 +60,10 @@ iterativeAssemble = function(input.reads = NULL,
                              min.ref.id = 0.75,
                              memory = 1,
                              threads = 1,
-                             spades.path = "spades.py",
-                             bbmap.path = "bbmap.sh",
-                             cap3.path = "cap3",
+                             spades.path = NULL,
+                             bbmap.path = NULL,
+                             cap3.path = NULL,
+                             blast.path = NULL,
                              resume = TRUE,
                              overwrite = FALSE,
                              quiet = TRUE) {
@@ -81,6 +82,38 @@ iterativeAssemble = function(input.reads = NULL,
   # spades.path = "/usr/local/Spades/bin/spades.py"
   # bbmap.path = "/usr/local/bin/bbmap.sh"
   # mapper = "bbmap"
+  #Same adds to bbmap path
+
+  if (is.null(spades.path) == FALSE){
+    b.string = unlist(strsplit(spades.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      spades.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { spades.path = "" }
+
+  #Same adds to bbmap path
+  if (is.null(bbmap.path) == FALSE){
+    b.string = unlist(strsplit(bbmap.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      bbmap.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { bbmap.path = "" }
+
+  #Same adds to bbmap path
+  if (is.null(cap3.path) == FALSE){
+    b.string = unlist(strsplit(cap3.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      cap3.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { cap3.path = "" }
+
+  #Same adds to bbmap path
+  if (is.null(blast.path) == FALSE){
+    b.string = unlist(strsplit(blast.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      blast.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { blast.path = "" }
 
   #Quick checks
   options(stringsAsFactors = FALSE)
@@ -137,7 +170,7 @@ iterativeAssemble = function(input.reads = NULL,
 
       if (length(set.reads) == 1){
         #Pick out matching reads to mt Genomes
-        system(paste0(bbmap.path, " -Xmx", memory, "g ref=iterative_temp/current_seed.fa in1=", set.reads[1],
+        system(paste0(bbmap.path, "bbmap.sh -Xmx", memory, "g ref=iterative_temp/current_seed.fa in1=", set.reads[1],
                       " vslow k=12 minid=", min.ref.id,
                       " outm1=iterative_temp/temp_read1.fq"),
                ignore.stderr = quiet, ignore.stdout = quiet)
@@ -151,7 +184,7 @@ iterativeAssemble = function(input.reads = NULL,
 
       if (length(set.reads) >= 2){
         #Pick out matching reads to mt Genomes
-        system(paste0(bbmap.path, " -Xmx", memory, "g ref=iterative_temp/current_seed.fa", " in1=", set.reads[1],
+        system(paste0(bbmap.path, "bbmap.sh -Xmx", memory, "g ref=iterative_temp/current_seed.fa", " in1=", set.reads[1],
                       " in2=", set.reads[2], " vslow k=12 minid=", min.ref.id,
                       " outm1=iterative_temp/temp_read1.fq outm2=iterative_temp/temp_read2.fq"),
                ignore.stderr = quiet, ignore.stdout = quiet)
@@ -169,7 +202,7 @@ iterativeAssemble = function(input.reads = NULL,
 
       if (length(set.reads) == 3){
         #Third set of reads
-        system(paste0(bbmap.path, " -Xmx", memory, "g ref=iterative_temp/current_seed.fa",
+        system(paste0(bbmap.path, "bbmap.sh -Xmx", memory, "g ref=iterative_temp/current_seed.fa",
                       " in=", set.reads[3], " vslow k=12 minid=", min.ref.id,
                       " outm=iterative_temp/temp_read3.fq"),
                ignore.stderr = quiet, ignore.stdout = quiet)
@@ -247,7 +280,7 @@ iterativeAssemble = function(input.reads = NULL,
     if (length(combined.contigs) >= 2){
       combined.contigs = removeOffTarget(target = reference,
                                          contigs = combined.contigs,
-                                         blast.path = "",
+                                         blast.path = blast.path,
                                          threads = threads,
                                          quiet = T,
                                          remove.bad = F)
@@ -257,7 +290,7 @@ iterativeAssemble = function(input.reads = NULL,
     if (max(Biostrings::width(combined.contigs)) >= min.length){
       combined.contigs = removeOffTarget(target = reference,
                                          contigs = combined.contigs,
-                                         blast.path = "",
+                                         blast.path = blast.path,
                                          threads = threads,
                                          quiet = T,
                                          remove.bad = T)

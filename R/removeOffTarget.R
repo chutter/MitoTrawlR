@@ -26,7 +26,7 @@
 
 removeOffTarget = function(target = NULL,
                            contigs = NULL,
-                           blast.path = "blast",
+                           blast.path = NULL,
                            threads = 1,
                            remove.bad = F,
                            quiet = TRUE) {
@@ -37,6 +37,14 @@ removeOffTarget = function(target = NULL,
   # threads = 6
   # quiet = F
   # remove.bad = T
+
+  if (is.null(blast.path) == FALSE){
+    b.string = unlist(strsplit(blast.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      blast.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { blast.path = "" }
+
 
   #Writes contigs for cap3
   write.loci = as.list(as.character(contigs))

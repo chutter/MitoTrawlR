@@ -11,4 +11,4 @@ eval "$(conda shell.bash hook)"
 
 conda activate /work/chutter/Programs/conda/mitocap
 
-Rscript Process_Mitogenomes.R
+Rscript MitoCap_workflow.R

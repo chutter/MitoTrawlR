@@ -1,98 +1,11 @@
 ##########################################################################################3
 ##########################################################################################3
-### Preprocessing using PhyloCap if needed
-
-#Installs updated package version
-devtools::install_github("chutter/PhyloCap", upgrade = "never", force = TRUE)
-library(PhyloCap)
-
-source("/Volumes/Rodents/Mitogenomes/Crocidura/configuration-file-preproc.R")
-
-#Checks if everything is installed
-pass.fail = setupCheck(anaconda.environment =  NULL,
-                       fastp.path = fastp.path,
-                       samtools.path = samtools.path,
-                       bwa.path = bwa.path,
-                       spades.path = spades.path,
-                       bbmap.path = bbmap.path,
-                       blast.path = blast.path,
-                       mafft.path = mafft.path,
-                       iqtree.path = iqtree.path,
-                       trimAl.path = trimAl.path,
-                       julia.path = julia.path,
-                       taper.path = taper.path)
-
-if (pass.fail == FALSE){ stop("Some required programs are missing") } else {
-  print("all required programs are found, PhyloCap pipeline continuing...")
-}
-
-
-setwd(work.dir)
-dir.create("processed-reads")
-
-if (organize.reads == TRUE) {
-  organizeReads(read.directory = read.dir,
-                output.dir = paste0(processed.reads, "/organized-reads"),
-                rename.file = file.rename,
-                overwrite = overwrite)
-  input.reads = paste0(processed.reads, "/organized-reads")
-} else {input.reads = read.dir }
-
-if (remove.adaptors == TRUE) {
-  removeAdaptors(input.reads = input.reads,
-                 output.directory = paste0(processed.reads, "/adaptor-removed-reads"),
-                 fastp.path = fastp.path,
-                 threads = threads,
-                 mem = memory,
-                 resume = resume,
-                 overwrite = overwrite,
-                 quiet = quiet)
-  input.reads = paste0(processed.reads, "/adaptor-removed-reads")
-}
-
-#Runs decontamination of reads
-if (decontamination == TRUE){
-  #Creates the database by downloading
-  createContaminantDB(decontamination.list = contaminant.genome.list,
-                      output.directory = "contaminant-references",
-                      include.human = include.human,
-                      include.univec = include.univec,
-                      overwrite = overwrite)
-
-  ## remove external contamination
-  removeContamination(input.reads = input.reads,
-                      output.directory = paste0(processed.reads, "/decontaminated-reads"),
-                      decontamination.path = "contaminant-references",
-                      map.match = decontamination.match,
-                      samtools.path = samtools.path,
-                      bwa.path = bwa.path,
-                      threads = threads,
-                      mem = memory,
-                      resume = resume,
-                      overwrite = overwrite,
-                      overwrite.reference = overwrite,
-                      quiet = quiet)
-  input.reads = paste0(processed.reads, "/decontaminated-reads")
-}
-
-
-if (merge.pe.reads == TRUE){
-  #merge paired end reads
-  mergePairedEndReads(input.reads = input.reads,
-                      output.directory =  paste0(processed.reads, "/pe-merged-reads"),
-                      fastp.path = fastp.path,
-                      threads = threads,
-                      mem = memory,
-                      resume = resume,
-                      overwrite = overwrite,
-                      quiet = quiet)
-  input.reads = paste0(processed.reads, "/pe-merged-reads")
-} #end decontamination
-
+# Optional Step 0: Preprocessing using PhyloCap if needed
+# Please use PhyloCap-readProcessing-pipeline.R first if starting with raw reads
 
 
 ##########################################################################################################
-#Step 2: Mitogenome assembly
+#Step 1: Mitogenome assembly
 ##########################################################################################################
 
 #Installs updated package version
@@ -100,7 +13,7 @@ devtools::install_github("chutter/MitoCap", upgrade = "never", force = TRUE)
 library(MitoCap)
 library(foreach)
 
-source("/Volumes/Rodents/Mitogenomes/Crocidura/configuration-file-mitocap.R")
+source("/Volumes/Rodents/Mitogenomes/Frogs/configuration-file-mitocap.R")
 setwd(work.dir)
 
 #Checks if everything is installed
@@ -113,7 +26,7 @@ pass.fail = MitoCap::setupCheck(anaconda.environment =  NULL,
                                 mafft.path = mafft.path,
                                 iqtree.path = iqtree.path,
                                 trimAl.path = trimAl.path,
-                                trnascan.path = trnascan.path)
+                                tRNAscan.path = tRNAscan.path)
 
 if (pass.fail == FALSE){ stop("Some required programs are missing") } else {
   print("all required programs are found, PhyloCap pipeline continuing...")
@@ -128,20 +41,22 @@ buildReference(reference.fasta = reference.fasta,
                rep.origin = FALSE)
 
 # #Iteratively assembles to reference
-mitochondrialCapture(input.reads = input.reads,
+mitochondrialCapture(input.reads = read.dir,
                      reference.name = "reference",
                      output.dir = "draftContigs",
-                     min.iterations = 5,
-                     max.iterations = 30,
-                     min.length = 16000,
-                     max.length = 40000,
-                     min.ref.id = 0.8,
+                     min.iterations = min.iterations,
+                     max.iterations = max.iterations,
+                     min.length = min.length,
+                     max.length = max.length,
+                     min.ref.id = min.ref.id,
                      memory = memory,
                      threads = threads,
                      spades.path = spades.path,
                      bbmap.path = bbmap.path,
-                     resume = TRUE,
-                     overwrite = FALSE)
+                     cap3.path = cap3.path,
+                     blast.path = blast.path,
+                     resume = resume,
+                     overwrite = overwrite)
 
 ### TO DO: Add a redo option for the non-continuous ones, using itself as a reference
 
@@ -150,55 +65,68 @@ mitochondrialCapture(input.reads = input.reads,
 #To do 2: save new contigs (instead of old) but with corrected start point so half of something isn't lost
 #Combine build mtgenomes with this step. difficut.
 
-annotateMitoContigs(contig.folder = "newContigs",
+annotateMitoContigs(contig.folder = "draftContigs",
                     reference.name = "reference",
-                    blast.path = "blast",
-                    trnascan.path = trnascan.path,
+                    blast.path = blast.path,
+                    tRNAscan.path = tRNAscan.path,
                     organism.type = "vertebrate",
-                    overwrite = TRUE,
-                    quiet = FALSE)
+                    overwrite = overwrite,
+                    quiet = quiet)
 
 #Aligns all the different markers
 markerAlignment(input.folder = "Annotations/sample-markers",
                 reference.name = "reference",
                 threads = threads,
-                overwrite = TRUE)
+                mafft.path = mafft.path,
+                overwrite = overwrite)
 
-#Trims the alignments to ready for concatenation or gene tree estimation
+#Fix the installs for this
 trimMitoAlignments(alignment.dir = "Alignments/untrimmed-alignments",
-                   alignment.format = "phylip",
-                   output.dir = "Alignments/trimmed-alignments",
-                   output.format = "phylip",
-                   sample.similiarity = TRUE,
-                   TrimAl = TRUE,
-                   TrimAl.path = "trimal",
-                   trim.external = TRUE,
-                   min.external.percent = 50,
-                   trim.coverage = TRUE,
-                   min.coverage.percent = 30,
-                   trim.column = TRUE,
-                   min.column.gap.percent = 100,
-                   alignment.assess = TRUE,
-                   min.sample.bp = 10,
-                   min.align.length = 0,
-                   min.taxa.count = 12,
-                   min.gap.percent = 50,
-                   overwrite = TRUE)
+                    alignment.format = "phylip",
+                    output.dir = "Alignments/trimmed-alignments",
+                    output.format = "phylip",
+                    overwrite = overwrite,
+                    resume = resume,
+                    TrimAl = run.TrimAl,
+                    TrimAl.path = TrimAl.path,
+                    trim.column = trim.column,
+                    convert.ambiguous.sites = convert.ambiguous.sites,
+                    alignment.assess = alignment.assess,
+                    trim.external = trim.external,
+                    trim.coverage = trim.coverage,
+                    min.coverage.percent = min.coverage.percent,
+                    min.external.percent = min.external.percent,
+                    min.column.gap.percent = min.column.gap.percent,
+                    min.alignment.length = min.alignment.length,
+                    min.taxa.alignment = min.taxa.alignment.trim,
+                    max.alignment.gap.percent = max.alignment.gap.percent,
+                    min.coverage.bp = min.coverage.bp,
+                    threads = threads,
+                    memory = memory)
 
 #Aligns the mitogenomes and outputs summary stats
 alignMitogenomes(alignment.folder = "Alignments/untrimmed-alignments",
-                 genbank.file = gb.file,
+                 reference.name = "reference",
                  draft.contigs = "draftContigs",
-                 output.dir = "Genomes",
+                 output.dir = "MitoGenomes",
                  dataset.name = "untrimmed",
-                 overwrite = TRUE)
+                 overwrite = overwrite)
 
 #Aligns the mitogenomes and outputs summary stats
 alignMitogenomes(alignment.folder = "Alignments/trimmed-alignments",
-                 genbank.file = gb.file,
+                 reference.name = "reference",
                  draft.contigs = "draftContigs",
-                 output.dir = "Genomes",
+                 output.dir = "MitoGenomes",
                  dataset.name = "trimmed",
+                 overwrite = FALSE)
+
+
+### Create final mitogenomes
+buildMitogenomes(annotation.dir = "Annotations",
+                 alignment.folder = "Alignments/untrimmed-alignments",
+                 genome.alignment = "Genomes/alignments/untrimmed_mitogenome_alignment.phy",
+                 genome.dir = "Genomes",
+                 output.dir = NULL,
                  overwrite = FALSE)
 
 
