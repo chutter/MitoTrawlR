@@ -227,14 +227,14 @@ iterativeAssemble = function(input.reads = NULL,
     system("rm -r ref")
 
     #Runs spades
-    spades.contigs = PhyloCap::runSpades(read.paths = temp.read.path,
-                                         full.path.spades = spades.path,
-                                         mismatch.corrector = FALSE,
-                                         save.file = F,
-                                         quiet =T,
-                                         read.contigs = T,
-                                         threads = threads,
-                                         memory = memory)
+    spades.contigs = runSpades(read.paths = temp.read.path,
+                               full.path.spades = spades.path,
+                               mismatch.corrector = FALSE,
+                               save.file = F,
+                               quiet =T,
+                               read.contigs = T,
+                               threads = threads,
+                               memory = memory)
 
     spades.contigs = spades.contigs[Biostrings::width(spades.contigs) >= 100]
 

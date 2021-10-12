@@ -10,7 +10,7 @@ working.directory = "/Volumes/Rodents/Mitogenomes/Crocidura"
 #The input raw read directory
 read.directory = "/Volumes/Rodents/Mitogenomes/Crocidura/processed-reads/pe-merged-reads"
 #The name for the dataset
-dataset.name = "Crocidura"
+dataset.name = "Lizards"
 
 #Reference configuration
 #########################

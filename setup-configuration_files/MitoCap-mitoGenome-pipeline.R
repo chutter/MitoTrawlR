@@ -13,7 +13,7 @@ devtools::install_github("chutter/MitoCap", upgrade = "never", force = TRUE)
 library(MitoCap)
 library(foreach)
 
-source("/Volumes/Rodents/Mitogenomes/Frogs/configuration-file-mitocap.R")
+source("/Volumes/Rodents/Mitogenomes/Crocidura/configuration-file-mitocap.R")
 #source("configuration-file-mitocap.R")
 setwd(working.directory)
 
@@ -30,7 +30,7 @@ pass.fail = MitoCap::setupCheck(anaconda.environment =  NULL,
                                 tRNAscan.path = tRNAscan.path)
 
 if (pass.fail == FALSE){ stop("Some required programs are missing") } else {
-  print("all required programs are found, PhyloCap pipeline continuing...")
+  print("all required programs are found, MitoCap pipeline continuing...")
 }
 
 # #Makes your reference, be sure to inspect the table it makes to ensure accuracy
@@ -49,14 +49,13 @@ mitochondrialCapture(input.reads = read.directory,
                      max.iterations = max.iterations,
                      min.length = min.length,
                      max.length = max.length,
-                     min.ref.id = min.ref.id,
+                     min.ref.id = min.read.match,
                      memory = memory,
                      threads = threads,
                      spades.path = spades.path,
                      bbmap.path = bbmap.path,
                      cap3.path = cap3.path,
                      blast.path = blast.path,
-                     resume = resume,
                      overwrite = overwrite)
 
 ### TO DO: Add a redo option for the non-continuous ones, using itself as a reference

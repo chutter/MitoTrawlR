@@ -63,7 +63,6 @@ mitochondrialCapture = function(input.reads = NULL,
                                 blast.path = NULL,
                                 memory = 1,
                                 threads = 1,
-                                resume = TRUE,
                                 overwrite = FALSE,
                                 quiet = TRUE) {
 
