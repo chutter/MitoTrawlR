@@ -1,14 +1,18 @@
 # MitoCap
-An R package for processing high-throughput sequence data from raw reads to alignments from mitochondrial genomes sequenced as by-catch
+An R package for iterative assembly and annotating mitochondrial genomes from short-read sequence data. 
 
 The R package can be run as a single pipeline with a configuration file or through separate functions to create a customized pipeline. In one command, the pipeline will perform: 
 
-1) Iteratively assemble mitochondrial genomes from processed reads using a reference (mitochondrial genome or gene)
+1a) Iteratively assemble mitochondrial genomes from processed reads using a reference (mitochondrial genome or gene) [Slower but more complete data]
+
+OR
+
+1b) Extract mitochondrial genome from assembled contigs if its present [Faster but more missing data]
+
 2) Annotate mitochondrial genomes based on reference
 3) Align different features from the mitochondrial genome (rRNA, tRNA, CDS)
 4) Trim alignments and concatenate for tree building 
 5) Create finished mitochondrial genomes ready for submission to GenBank or other repositories
-
 
 # Installation of prerequisites 
 
