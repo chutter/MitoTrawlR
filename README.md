@@ -1,7 +1,7 @@
 # MitoCap
 An R package for processing high-throughput sequence data from raw reads to alignments from mitochondrial genomes sequenced as by-catch
 
-The R package can be run as a single pipeline with a configuration file or through separate functions to create a customized pipeline. The R package has functions for: 
+The R package can be run as a single pipeline with a configuration file or through separate functions to create a customized pipeline. In one command, the pipeline will perform: 
 
 1) Iteratively assemble mitochondrial genomes from processed reads using a reference (mitochondrial genome or gene)
 2) Annotate mitochondrial genomes based on reference
@@ -30,8 +30,6 @@ Imports:
 - doparallel
 - rdrop2
 
-
-
 2. Outside programs
 
 - fastp: adaptor trimming and paired-end read merging
@@ -40,8 +38,6 @@ Imports:
 - BLAST: matching assembled contigs to targets, other utilities
 - mafft: creating alignments
 - trimal: trimming alignments
-- GATK4: variant calling functions
-- SamTools: variant calling and read mapping tools
 - tRNAScan: annotate tRNAs
 
 First, you will want to clone this repository to your computer to obtain the setup files. Or alternatively go to the green "Code" button in top right of this repository and select "download ZIP".Second, change your working directory in the terminal to the downloaded repository. The key file here is the "MitoCap.yml" anaconda environment file, which must be present in the working directory being used. 
