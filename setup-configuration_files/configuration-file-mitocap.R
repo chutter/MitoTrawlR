@@ -6,19 +6,19 @@
 #########################
 # *** Full paths should be used whenever possible
 #The main working directory
-working.directory = "/Volumes/Rodents/Mitogenomes/Crocidura"
+working.directory = "/directory/for/the/work"
 #The input raw read directory
-read.directory = "/Volumes/Rodents/Mitogenomes/Crocidura/processed-reads/pe-merged-reads"
+read.directory = "/directory/with/the/cleaned/reads"
 #The name for the dataset
-dataset.name = "Lizards"
+dataset.name = "Name"
 
 #Reference configuration
 #########################
 #Provide a fasta file to a single sequence for the mitochondrial genome
-reference.fasta = "Mus_mus.fa"
+reference.fasta = "reference.fa"
 #provide a table or GFF file annotating the features (genes, tRNAs, etc) for reference.fasta
 #GFF file can be downloaded directly from GenBank
-annotation.file = "Mus_mus.gff"
+annotation.file = "reference.gff"
 #Only GFF available for now
 annotation.type = "gff"
 
