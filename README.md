@@ -44,15 +44,10 @@ Imports:
 - SamTools: variant calling and read mapping tools
 - tRNAScan: annotate tRNAs
 
-First, you will want to clone this repository to your computer to obtain the setup files. Or alternatively go to the green "Code" button in top right of this repository and select "download ZIP".
+First, you will want to clone this repository to your computer to obtain the setup files. Or alternatively go to the green "Code" button in top right of this repository and select "download ZIP".Second, change your working directory in the terminal to the downloaded repository. The key file here is the "MitoCap.yml" anaconda environment file, which must be present in the working directory being used. 
 
 ```bash
 git clone https://github.com/chutter/MitoCap.git
-```
-
-Second, change your working directory in the terminal to the downloaded repository. The key file here is the "MitoCap.yml" anaconda environment file, which must be present in the working directory being used. 
-
-```bash
 cd /MitoCap/setup-configuration_files/
 ```
 
@@ -106,8 +101,10 @@ And installation should be done! All the functions for MitoCap should be ready t
 
 3) You can run the following function to see if MitoCap can find the dependencies: 
 
-< coming soon a function to test if they can found >
+MitoCap::setupCheck(anaconda.environment =  "path/to/anaconda/environment/MitoCap)
 
+And it should return the list of programs and whether they were found or not. You can use this information to either install the program manually, and you'll have to add in the new non-anaconda path into the configuration file. 
+                                
 
 # MitoCap pipeline tutorials 
 
