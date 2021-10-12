@@ -6,9 +6,9 @@
 #########################
 # *** Full paths should be used whenever possible
 #The main working directory
-work.dir = "/Volumes/Rodents/Mitogenomes/Crocidura"
+working.directory = "/Volumes/Rodents/Mitogenomes/Crocidura"
 #The input raw read directory
-read.dir = "/Volumes/Rodents/Mitogenomes/Crocidura/processed-reads/pe-merged-reads"
+read.directory = "/Volumes/Rodents/Mitogenomes/Crocidura/processed-reads/pe-merged-reads"
 #The name for the dataset
 dataset.name = "Crocidura"
 
@@ -30,45 +30,32 @@ threads = 4
 memory = 8
 #Whether to overwrite previous runs
 overwrite = TRUE
-#Resume from previous runs (does not overwrite)
-resume = FALSE
 #Print verbose output for each function
 quiet = TRUE
 
-
-
 #Mitogenome assembly configuration
 #########################
-#
-# mitochondrialCapture(input.reads = input.reads,
-#                      reference.name = "reference",
-#                      output.dir = "draftContigs",
-#                      min.iterations = 5,
-#                      max.iterations = 30,
-#                      min.length = 16000,
-#                      max.length = 40000,
-#                      min.ref.id = 0.8,
-#                      memory = memory,
-#                      threads = threads,
-#                      spades.path = spades.path,
-#                      bbmap.path = bbmap.path,
-#                      resume = TRUE,
-#                      overwrite = FALSE)
+#TRUE to iterative assemble; FALSE to assemble a single time
+iterative.assemble = TRUE
+#minimum number of iterations before terminating
+min.iterations = 5
+#maximum number of iterations before terminating
+max.iterations = 30
+#minimum allowable length in basepairs of a single contig before considering "complete"
+min.length = 16000
+#maximum allowable length in basepairs of a single contig before quitting
+max.length = 40000
+#minimum match proportion of the reads to the reference
+min.read.match = 0.8
 
-
-#Alignment settings
-#########################
+#Alignment and trimming settings
+#############################
 #TRUE = to run alignments for the matching targets from above
-align.mitochondrial.markers = FALSE
-#The minimum number of taxa to keep an alignment
-min.taxa.alignment = 4
-
-#Alignment trimming settings
-#########################
+align.mitochondrial.markers = TRUE
 #TRUE = to run alignment trimming function batchTrimAlignments
 trim.alignments = TRUE
 #The minimum number of taxa to keep an alignment
-min.taxa.alignment.trim = 5
+min.taxa.alignment = 4
 #The minimum alignment basepairs to keep an alignment
 min.alignment.length = 10
 #The maximum gaps from throughout the entire alignment to keep an alignment
@@ -96,15 +83,6 @@ min.coverage.percent = 30
 #The minimum number of bases that must be present to keep a sample
 min.coverage.bp = 10
 
-
-#Tree settings
-#########################
-#TRUE = to estimate gene trees for each alignment
-estimate.gene.trees = FALSE
-#The minimum number of taxa to keep a gene tree
-min.taxa.tree = 4
-#TRUE = Clean up iqtree files except the ML tree
-cleanup.genetrees = TRUE #Only saves the ML tree; FALSE saves all IQTree files for each gene tree
 
 #Program paths
 #########################

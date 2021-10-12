@@ -14,7 +14,8 @@ library(MitoCap)
 library(foreach)
 
 source("/Volumes/Rodents/Mitogenomes/Frogs/configuration-file-mitocap.R")
-setwd(work.dir)
+#source("configuration-file-mitocap.R")
+setwd(working.directory)
 
 #Checks if everything is installed
 pass.fail = MitoCap::setupCheck(anaconda.environment =  NULL,
@@ -41,7 +42,7 @@ buildReference(reference.fasta = reference.fasta,
                rep.origin = FALSE)
 
 # #Iteratively assembles to reference
-mitochondrialCapture(input.reads = read.dir,
+mitochondrialCapture(input.reads = read.directory,
                      reference.name = "reference",
                      output.dir = "draftContigs",
                      min.iterations = min.iterations,
