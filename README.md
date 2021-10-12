@@ -108,8 +108,6 @@ And it should return the list of programs and whether they were found or not. Yo
 
 # MitoCap pipeline tutorials 
 
-[Installation: detailed installation instructions and trouble-shooting ](https://github.com/chutter/PhyloCap/wiki/Installation:-detailed-installation-instructions-and-trouble-shooting)
-
 [Tutorial 1: MitoCap configuration](https://github.com/chutter/MitoCap/wiki/Tutorial-1:-MitoCap-configuration)
 
 [Tutorial 2: MitoCap quick start pipeline](https://github.com/chutter/MitoCap/wiki/Tutorial-2:-MitoCap-quick-start-pipeline)
