@@ -9,6 +9,6 @@
 
 eval "$(conda shell.bash hook)"
 
-conda activate /work/chutter/Programs/conda/mitocap
+conda activate /work/chutter/Programs/conda/MitoCap
 
 Rscript MitoCap_workflow.R

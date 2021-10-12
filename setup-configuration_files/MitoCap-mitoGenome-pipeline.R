@@ -1,8 +1,6 @@
 ##########################################################################################3
 ##########################################################################################3
 # Optional Step 0: Preprocessing using PhyloCap if needed
-# Please use PhyloCap-readProcessing-pipeline.R first if starting with raw reads
-
 
 ##########################################################################################################
 #Step 1: Mitogenome assembly
@@ -86,9 +84,8 @@ trimMitoAlignments(alignment.dir = "Alignments/untrimmed-alignments",
                     output.dir = "Alignments/trimmed-alignments",
                     output.format = "phylip",
                     overwrite = overwrite,
-                    resume = resume,
                     TrimAl = run.TrimAl,
-                    TrimAl.path = TrimAl.path,
+                    TrimAl.path = trimAl.path,
                     trim.column = trim.column,
                     convert.ambiguous.sites = convert.ambiguous.sites,
                     alignment.assess = alignment.assess,
@@ -98,7 +95,7 @@ trimMitoAlignments(alignment.dir = "Alignments/untrimmed-alignments",
                     min.external.percent = min.external.percent,
                     min.column.gap.percent = min.column.gap.percent,
                     min.alignment.length = min.alignment.length,
-                    min.taxa.alignment = min.taxa.alignment.trim,
+                    min.taxa.alignment = min.taxa.alignment,
                     max.alignment.gap.percent = max.alignment.gap.percent,
                     min.coverage.bp = min.coverage.bp,
                     threads = threads,
@@ -122,13 +119,13 @@ alignMitogenomes(alignment.folder = "Alignments/trimmed-alignments",
 
 
 ### Create final mitogenomes
-buildMitogenomes(annotation.dir = "Annotations",
-                 alignment.folder = "Alignments/untrimmed-alignments",
-                 genome.alignment = "Genomes/alignments/untrimmed_mitogenome_alignment.phy",
-                 genome.dir = "Genomes",
-                 output.dir = NULL,
-                 overwrite = FALSE)
-
+# buildMitogenomes(annotation.dir = "Annotations",
+#                  alignment.folder = "Alignments/untrimmed-alignments",
+#                  genome.alignment = "Genomes/alignments/untrimmed_mitogenome_alignment.phy",
+#                  genome.dir = "Genomes",
+#                  output.dir = NULL,
+#                  overwrite = FALSE)
+#
 
 # tree.dir = "/Volumes/Rodents/Murinae/Mitochondrial_genomes/trees"
 # dir.create(tree.dir)

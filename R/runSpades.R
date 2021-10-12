@@ -98,7 +98,7 @@ runSpades = function(read.paths = NULL,
     if (length(read.paths)  == 3){
       system(paste0(full.path.spades, "spades.py --pe1-1 ", read.paths[1],
                     " --pe1-2 ", read.paths[2], " --merged ", read.paths[3],
-                    " --plasmid -o spades -k ",k.val, " ", mismatch.string, "-t ", threads, " -m ", memory),
+                    " -o spades -k ",k.val, " ", mismatch.string, "-t ", threads, " -m ", memory),
              ignore.stdout = quiet)
     }#end 3 reads
     #subtract Ks until it works

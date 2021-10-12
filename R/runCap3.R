@@ -128,4 +128,7 @@ runCap3 = function(contigs = input.contigs,
     return(final.save)
   }#end if
 
+  system(paste0("rm ", contig.file, "*"))
+  system(paste("rm input_contigs.fa*"))
+
 }#end function

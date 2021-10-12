@@ -152,7 +152,7 @@ mitochondrialCapture = function(input.reads = NULL,
   # }#end sample folder if
 
   #Skips samples already finished
-  if (resume == TRUE){
+  if (overwrite == FALSE){
     done.names = list.files(output.dir)
     samples = samples[!samples %in% gsub(".fa$", "", done.names)]
   } else { samples = samples }

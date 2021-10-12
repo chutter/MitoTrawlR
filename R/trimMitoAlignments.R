@@ -75,8 +75,7 @@ trimMitoAlignments = function(alignment.dir = NULL,
                               max.alignment.gap.percent = 0,
                               threads = 1,
                               memory = 1,
-                              overwrite = FALSE,
-                              resume = TRUE) {
+                              overwrite = FALSE) {
 
   # #devtools::install_github("chutter/PHYLOCAP", upgrade = "never")
   # library(PhyloCap)
@@ -137,12 +136,6 @@ trimMitoAlignments = function(alignment.dir = NULL,
 
   # if (dir.exists(output.dir) == FALSE) { dir.create(output.dir) }
 
-  #So I don't accidentally delete everything while testing resume
-  if (resume == TRUE & overwrite == TRUE){
-    overwrite = FALSE
-    stop("Error: resume = T and overwrite = T, cannot resume if you are going to delete everything!")
-  }
-
   if (dir.exists(output.dir) == TRUE) {
     if (overwrite == TRUE){
       system(paste0("rm -r ", output.dir))
@@ -156,7 +149,7 @@ trimMitoAlignments = function(alignment.dir = NULL,
   if (length(align.files) == 0) { stop("alignment files could not be found.") }
 
   #Skips files done already if resume = TRUE
-  if (resume == TRUE){
+  if (overwrite == FALSE){
     done.files = list.files(output.dir)
     align.files = align.files[!gsub("\\..*", "", align.files) %in% gsub("\\..*", "", done.files)]
   }
