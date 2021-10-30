@@ -84,7 +84,7 @@ The main functions of MitoCap are contained in an R package that has been tested
 1) Install MitoCap by typing in your R console or including at the top of your R script (its already included in the automatic pipeline script): 
 
 ```R
-devtools::install_github("chutter/MitoCap", update = "never", dependencies = FALSE)
+devtools::install_github("chutter/MitoCap", upgrade = "never", dependencies = FALSE)
 ```
 
 The update = "never" flag ensures that packages already installed via the anaconda environment are not changed, which will often break things. Additionally, dependencies = FALSE is set for the same reason. 
