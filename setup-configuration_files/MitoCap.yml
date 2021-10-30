@@ -16,8 +16,6 @@ dependencies:
   - blast=2.11.0
   - bwa=0.7.17
   - cap3=10.2011
-  - fastp=0.20.1
-  - fastqsplitter=1.2.0
   - gatk4=4.2.0.0
   - git=2.23.0
   - iqtree=2.1.2
@@ -35,6 +33,6 @@ dependencies:
   - r-seqinr=4.2_4
   - r-stringr=1.4.0
   - samtools=1.10
-  - spades=3.14.1
+  - spades=3.15.3
   - trimal=1.4.1
   - trnascan-se=2.0.7
