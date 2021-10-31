@@ -38,12 +38,12 @@ annotateMitoContigs = function(contig.folder = NULL,
                                quiet = TRUE) {
 
   # # #Debug
-  reference.name = "reference"
-  contig.folder = "draftContigs"
-  overwrite = TRUE
-  quiet = FALSE
-  organism.type = "vertebrate"
-  trnascan.path = "/Users/chutter/miniconda3/bin/tRNAscan-SE"
+  # reference.name = "reference"
+  # contig.folder = "draftContigs"
+  # overwrite = TRUE
+  # quiet = FALSE
+  # organism.type = "vertebrate"
+  # trnascan.path = "/Users/chutter/miniconda3/bin/tRNAscan-SE"
 
   if (is.null(blast.path) == FALSE){
     b.string = unlist(strsplit(blast.path, ""))
@@ -520,7 +520,7 @@ annotateMitoContigs = function(contig.folder = NULL,
     final.sample = rbind(add.rna, add.cds)
     final.sample = final.sample[order(final.sample$contig, final.sample$start),]
 
-    ### Find stop codons and adjust frame
+    ### Writes the summary
     write.csv(final.sample, file = paste0("Annotations/sample-summary/", spp.samples[i], "_sample-summary.csv"))
 
     #Writes the full mitochondrial genome file

@@ -50,8 +50,8 @@
 
 #Iteratively assembles to reference
 barcodeSampleScan = function(input.reads = NULL,
-                             reference.name = "reference",
-                             output.dir = "draftContigs",
+                             barcode.fasta = NULL,
+                             output.directory = "draftContigs",
                              min.iterations = 5,
                              max.iterations = 20,
                              min.length = 17000,
@@ -59,29 +59,27 @@ barcodeSampleScan = function(input.reads = NULL,
                              min.ref.id = 0.75,
                              spades.path = NULL,
                              bbmap.path = NULL,
-                             cap3.path = NULL,
                              blast.path = NULL,
                              memory = 1,
                              threads = 1,
                              overwrite = FALSE,
                              quiet = TRUE) {
 
-  # # #Debug
-  # setwd("/Volumes/Rodents/Murinae/Mitochondrial_genomes")
-  # input.reads = "/Volumes/Rodents/Murinae/processed-reads/adaptor-removed-reads"
-  # reference.name = "reference"
-  # output.dir = "draftContigs"
-  # min.ref.id = 0.8
-  # memory = 8
-  # threads = 6
-  # resume = TRUE
-  # overwrite = FALSE
-  # max.iterations = 30
-  # min.iterations = 5
-  # min.length = 15000
-  # max.length = 40000
-  # spades.path = "/usr/local/Spades/bin/spades.py"
-  # bbmap.path = "/usr/local/bin/bbmap.sh"
+  # #Debug
+  setwd("/Volumes/Rodents/Mitogenomes")
+  input.reads = "/Volumes/Rodents/Mitogenomes/Crocidura/processed-reads/pe-merged-reads"
+  barcode.fasta = "/Volumes/Rodents/Mitogenomes/Crocidura/barcode_cox1.fa"
+  output.directory = "draftContigs"
+  min.ref.id = 0.8
+  memory = 8
+  threads = 6
+  overwrite = FALSE
+  max.iterations = 30
+  min.iterations = 5
+  min.length = 15000
+  max.length = 40000
+  spades.path = "/usr/local/Spades/bin/spades.py"
+  bbmap.path = "/usr/local/bin/bbmap.sh"
 
 
   if (is.null(spades.path) == FALSE){
@@ -100,14 +98,6 @@ barcodeSampleScan = function(input.reads = NULL,
   } else { bbmap.path = "" }
 
   #Same adds to bbmap path
-  if (is.null(cap3.path) == FALSE){
-    b.string = unlist(strsplit(cap3.path, ""))
-    if (b.string[length(b.string)] != "/") {
-      cap3.path = paste0(append(b.string, "/"), collapse = "")
-    }#end if
-  } else { cap3.path = "" }
-
-  #Same adds to bbmap path
   if (is.null(blast.path) == FALSE){
     b.string = unlist(strsplit(blast.path, ""))
     if (b.string[length(b.string)] != "/") {
@@ -117,17 +107,13 @@ barcodeSampleScan = function(input.reads = NULL,
 
   #Quick checks
   if (is.null(input.reads) == TRUE){ stop("Please provide input reads.") }
-  if (is.null(output.dir) == TRUE){ stop("Please provide an output directory.") }
-
-  if (dir.exists(reference.name) == FALSE){
-    stop("Please provide a reference directory name made from the function buildReference.")
-  }
+  if (is.null(output.directory) == TRUE){ stop("Please provide an output directory.") }
 
   #Sets directory and reads in  if (is.null(output.dir) == TRUE){ stop("Please provide an output directory.") }
-  if (dir.exists(output.dir) == F){ dir.create(output.dir) } else {
+  if (dir.exists(output.directory) == F){ dir.create(output.directory) } else {
     if (overwrite == TRUE){
-      system(paste0("rm -r ", output.dir))
-      dir.create(output.dir)
+      system(paste0("rm -r ", output.directory))
+      dir.create(output.directory)
     }
   }#end else
 
@@ -141,26 +127,116 @@ barcodeSampleScan = function(input.reads = NULL,
   samples = gsub(paste0(input.reads, "/"), "", reads)
   samples = unique(gsub("/.*", "", samples))
 
-  # if (sample.folder == T) { samples = list.dirs(read.dir, recursive = F, full.names = F) }
-  # if (sample.folder == F) {
-  #   samples = gsub("_R1.*", "", reads)
-  #   samples = gsub("_R2.*", "", samples)
-  #   samples = gsub("_READ1.*", "", samples)
-  #   samples = gsub("_READ2.*", "", samples)
-  #   samples = gsub("_singletons.*", "", samples)
-  #   samples = gsub(".*\\/", "", samples)
-  # }#end sample folder if
-
   #Skips samples already finished
   if (overwrite == FALSE){
-    done.names = list.files(output.dir)
+    done.names = list.files(output.directory)
     samples = samples[!samples %in% gsub(".fa$", "", done.names)]
   } else { samples = samples }
 
   if (length(samples) == 0){ stop("No samples to run or incorrect directory.") }
 
+
+  #Here
+
+  ##Concateantes all the samples together for an easier blast run
+  dir.create("sampleMarkers")
+
+  #Gets samples that succeeded
+  samples = list.files(".")
+  samples = samples[grep(".fa$", samples)]
+  samples = samples[samples != "reference.fa"]
+  samples = samples[samples != "sample_blast_pieces.fa"]
+
+  #Make blast database for the probe loci
+  #headers
+  headers = c("qName", "tName", "pident", "matches", "misMatches", "gapopen",
+              "qStart", "qEnd", "tStart", "tEnd", "evalue", "bitscore", "qLen", "tLen", "gaps")
+
+  system(paste0("makeblastdb -in reference.fa -parse_seqids -dbtype nucl ",
+                " -out blast_db"))
+
+
+  #Gets the new tree fiels it made
+  header.data = c("Sample", "readPairs", "matchingReads", "numberTargets", "targetPer")
+  collect.data = data.table::data.table(matrix(as.numeric(0), nrow = length(samples), ncol = length(header.data)))
+  data.table::setnames(collect.data, header.data)
+  collect.data[, Sample:=as.character(Sample)]
+
   #Header data for features and whatnot
   for (i in 1:length(samples)){
+    #Gets reads together for this sample
+    sample.reads = reads[grep(samples[i], reads)]
+    #Gets sets of reads
+    sample.sets = gsub(paste0(".*/", samples[i], "/"), "", sample.reads)
+
+
+    contigs = scanFa(paste0(samples[i]))
+
+    #Matches samples to loci
+    system(paste0("blastn -task dc-megablast -db blast_db",
+                  " -query ", samples[i], " -out ", samples[i], "_match.txt",
+                  " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen gaps\" ",
+                  " -num_threads ", threads))
+
+
+
+
+
+
+
+
+    system(paste0("gzcat ", sample.sets[1], " > ",  gsub(".gz$", "",sample.sets[1]) ))
+    system(paste0("gzcat ", sample.sets[2], " > ",  gsub(".gz$", "",sample.sets[2]) ))
+
+    sample.reads = gsub(".gz$", "",sample.sets[1])
+    sample.reads[2] = gsub(".gz$", "",sample.sets[2])
+
+    #Magic blast stuff here
+    #Make blast database for the probe loci\
+    ref.contigs = scanFa(paste0(work.dir, "/", reference))
+
+    system(paste0("makeblastdb -in ", work.dir, "/", reference,
+                  " -parse_seqids -dbtype nucl -out transcript_nucl-blast_db"))
+
+    #Matches samples to proteins
+    system(paste0("magicblast -db transcript_nucl-blast_db -infmt fastq -reftype transcriptome",
+                  " -query ", sample.reads[1], " -query_mate ", sample.reads[2],
+                  " -out ", samples[i], "_prot-match.txt -perc_identity 0.65",
+                  " -outfmt tabular -num_threads ", threads))
+
+    # system(paste0("magicblast -db ", sample, "_nucl-blast_db -reftype transcriptome",
+    #               " -query ", sample, "_dedupe.fa -out ", sample, "_prot-match.txt",
+    #               " -outfmt tabular -num_threads ", threads))
+
+    #headers for the blast db
+    headers = c("qName", "tName", "pident", "qStart", "qEnd", "tStart", "tEnd", "evalue",
+                "qDir", "tDir", "qLen", "BTOP", "numPl", "compart", "lOver", "rOver")
+
+    match.data = fread(paste0(samples[i], "_prot-match.txt"), sep = "\t", header = T, stringsAsFactors = FALSE)
+    match.data[,grep("not used", colnames(match.data)) :=  NULL]
+    match.data[, c((ncol(match.data)-2):ncol(match.data)):=NULL]
+    setnames(match.data, headers)
+
+    #Count stuff
+    good.data = match.data[match.data$tName != "-",]
+    read.pairs = nrow(match.data)
+    no.targets = length(unique(good.data$tName))
+    match.reads = nrow(good.data)
+    per.targets = no.targets/length(ref.contigs)
+
+    #Saves data
+    set(collect.data, i = as.integer(i), j = match("Sample", header.data), value = samples[i] )
+    set(collect.data, i = as.integer(i), j = match("readPairs", header.data), value = read.pairs )
+    set(collect.data, i = as.integer(i), j = match("matchingReads", header.data), value = match.reads )
+    set(collect.data, i = as.integer(i), j = match("numberTargets", header.data), value = no.targets )
+    set(collect.data, i = as.integer(i), j = match("targetPer", header.data), value = per.targets )
+
+    #Delete
+    system(paste0("rm ", sample.reads[1]))
+    system(paste0("rm ", sample.reads[2]))
+
+
+
 
 
 #### ODL
@@ -184,11 +260,7 @@ if (sample.folder == F) {
 samples = unique(gsub("_L7_.*", "", samples))
 if (length(samples) == 0){ stop("No samples to run or incorrect directory.") }
 
-#Gets the new tree fiels it made
-header.data = c("Sample", "readPairs", "matchingReads", "numberTargets", "targetPer")
-collect.data = data.table(matrix(as.numeric(0), nrow = length(samples), ncol = length(header.data)))
-setnames(collect.data, header.data)
-collect.data[, Sample:=as.character(Sample)]
+
 
 #Header data for features and whatnot
 for (i in 1:length(samples)){

@@ -7,6 +7,10 @@
 ##########################################################################################################
 
 #Installs updated package version
+devtools::install_github("chutter/PhyloCap", upgrade = "never", dependencies = FALSE)
+library(PhyloCap)
+
+#Installs updated package version
 devtools::install_github("chutter/MitoCap", upgrade = "never", force = TRUE)
 library(MitoCap)
 library(foreach)
