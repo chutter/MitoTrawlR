@@ -51,7 +51,6 @@
 #Iteratively assembles to reference
 iterativeAssemble = function(input.reads = NULL,
                              reference = NULL,
-                             output.name = NULL,
                              mapper = "bbmap",
                              min.iterations = 5,
                              max.iterations = 20,
@@ -71,7 +70,6 @@ iterativeAssemble = function(input.reads = NULL,
   # #Debug
   # input.reads = sample.reads
   # reference = paste0(reference.name, "/refGenome.fa")
-  # output.name = paste0(output.dir, "/", samples[i])
   # min.ref.id = 0.80
   # memory = 8
   # threads = 6
@@ -116,10 +114,8 @@ iterativeAssemble = function(input.reads = NULL,
   } else { blast.path = "" }
 
   #Quick checks
-  options(stringsAsFactors = FALSE)
   if (is.null(input.reads) == TRUE){ stop("Please provide input reads.") }
   if (is.null(reference) == TRUE){ stop("Please provide a reference.") }
-  if (is.null(output.name) == TRUE){ stop("Please provide an output name.") }
 
   #Writes reference to file if its not a file path
   if(file.exists("iterative_temp") == TRUE){ system(paste0("rm -r iterative_temp")) }

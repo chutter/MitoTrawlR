@@ -45,7 +45,7 @@ isCircularGenome = function(contig = NULL,
 
   cut.contigs = append(cut.contig1, cut.contig2)
   names(cut.contigs) = c("seq1", "seq2")
-  cap.contig = runCap3(contigs = cut.contigs,
+  cap.contig = MitoCap::runCap3(contigs = cut.contigs,
                        a = 10,
                        b = 16,
                        c = 6,

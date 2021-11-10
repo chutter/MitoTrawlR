@@ -197,7 +197,6 @@ mitochondrialCapture = function(input.reads = NULL,
     #Runs iterative assembly function
     mito.contigs = iterativeAssemble(input.reads = it.sample.reads,
                                      reference = paste0(reference.name, "/refGenome.fa"),
-                                     output.name = paste0(output.dir, "/", samples[i]),
                                      min.ref.id = min.ref.id,
                                      memory = memory,
                                      threads = threads,
