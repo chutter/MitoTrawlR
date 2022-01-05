@@ -68,6 +68,7 @@ tRNAscan = function(contigs = NULL,
                 " temp-trna/input_contigs.fa"))
 
   #Load in tRNAscan data
+  if (length(readLines("temp-trna/output_trnascan.txt")) <= 2) { return(NULL) }
   scan.headers = c("contig", "trna_no", "start", "end", "type", "codon","codon_start", "codon_end", "score")
   scan.table = read.table("temp-trna/output_trnascan.txt", header = F, skip = 3)
   colnames(scan.table) = scan.headers

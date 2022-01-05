@@ -55,27 +55,33 @@ barcodeSampleScan = function(input.reads = NULL,
                              barcode.database = c("GenBank", "File"),
                              database.file = NULL,
                              hits.per.sample = 5,
+                             per.max.length = 0.25,
                              spades.path = NULL,
                              bbmap.path = NULL,
                              blast.path = NULL,
+                             cap3.path = NULL,
                              memory = 1,
                              threads = 1,
                              overwrite = FALSE,
                              quiet = TRUE) {
 
   # #Debug
-  setwd("/Volumes/Rodents/Mitogenomes")
-  input.reads = "/Volumes/Rodents/Mitogenomes/Frogs/processed-reads/pe-merged-reads"
-  barcode.fasta = "/Volumes/Rodents/Mitogenomes/Frogs/barcode_16S.fa"
-  output.directory = "barcodeScan"
-  memory = 8
-  threads = 6
-  overwrite = FALSE
-  spades.path = "/usr/local/Spades/bin"
-  bbmap.path = "/usr/local/bin"
-  blast.path = "/usr/local/bin"
-  hits.per.sample = 5
-
+  # library(PhyloCap)
+  # setwd("/Volumes/LaCie/Brygomantis/barcodeScan")
+  # input.reads = "/Volumes/LaCie/Brygomantis/processed-reads/pe-merged-reads"
+  # barcode.fasta = "/Volumes/LaCie/Brygomantis/barcodeScan/16S_barcode.fa"
+  # output.directory = "barcodeScan"
+  # memory = 36
+  # threads = 8
+  # overwrite = TRUE
+  # spades.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
+  # bbmap.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin/java /Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
+  # bbmap.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
+  # blast.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
+  # cap3.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
+  # hits.per.sample = 5
+  # per.max.length = 0.25
+  # barcode.database = "GenBank"
 
   if (is.null(spades.path) == FALSE){
     b.string = unlist(strsplit(spades.path, ""))
@@ -99,6 +105,14 @@ barcodeSampleScan = function(input.reads = NULL,
       blast.path = paste0(append(b.string, "/"), collapse = "")
     }#end if
   } else { blast.path = "" }
+
+  #Same adds to bbmap path
+  if (is.null(cap3.path) == FALSE){
+    b.string = unlist(strsplit(cap3.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      cap3.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { cap3.path = "" }
 
   #Quick checks
   if (is.null(input.reads) == TRUE){ stop("Please provide input reads.") }
@@ -185,12 +199,13 @@ barcodeSampleScan = function(input.reads = NULL,
                                      memory = memory,
                                      threads = threads,
                                      max.iterations = 10,
-                                     min.iterations = 3,
+                                     min.iterations = 5,
                                      min.length = Biostrings::width(ref.seq),
-                                     max.length = Biostrings::width(ref.seq)+(Biostrings::width(ref.seq) * 0.10),
+                                     max.length = Biostrings::width(ref.seq)+(Biostrings::width(ref.seq) * per.max.length),
                                      spades.path = spades.path,
                                      bbmap.path = bbmap.path,
                                      blast.path = blast.path,
+                                     cap3.path = cap3.path,
                                      mapper = "bbmap")
 
     if (length(mito.contigs) == 0){
@@ -314,7 +329,7 @@ barcodeSampleScan = function(input.reads = NULL,
     ########## Create nice output of blast results
     header.data = c("Sample", "GenBank_ID", "GenBank_Order", "GenBank_Family", "GenBank_Species",
                     "pident", "length", "mismatch", "evalue", "bitscore", "coverage")
-  
+
     #CReate empty dataset
     collect.data = data.table(matrix(as.numeric(0), nrow = length(samples)*hits.per.sample, ncol = length(header.data)))
     setnames(collect.data, header.data)
@@ -323,32 +338,32 @@ barcodeSampleScan = function(input.reads = NULL,
     collect.data[, GenBank_Species:=as.character(GenBank_Species)]
     collect.data[, GenBank_Family:=as.character(GenBank_Family)]
     collect.data[, GenBank_Order:=as.character(GenBank_Order)]
-  
+
     index.val = as.integer(1)
     for (i in 1:length(samples)){
-  
+
       sample.data = match.data[grep(gsub(".fa$", "", samples[i]), match.data$qseqid), ]
-  
+
       #If no data
       if (nrow(sample.data) == 0){
         print("No GenBanks matches were found or not enough sequence to match. ")
         next
       }#end if
-  
+
       #Goes through each sample and assigns genbank taxonomy
       for (j in 1:nrow(sample.data)){
         #Looks up genbank taxonomy somehow.
         system(paste0("curl https://taxonomy.jgi-psf.org/accession/", sample.data$sacc[j],
                       " > output.txt"))
         tax = readLines("output.txt", warn = FALSE)
-  
+
         if (length(grep("Not found.", tax)) != 0) {
           set(collect.data, i = as.integer(index.val), j = match("Sample", header.data), value =  gsub(".fa$", "", samples[i]) )
           set(collect.data, i = as.integer(index.val), j = match("GenBank_ID", header.data), value = "Taxonomy-not-found" )
           index.val = index.val + as.integer(1)
           next
         }
-  
+
         #Species data
         spp.line = tax[grep("\"species\":", tax)+1]
         spp.line = gsub("\"", "", spp.line)
@@ -368,11 +383,11 @@ barcodeSampleScan = function(input.reads = NULL,
         ord.line = gsub(",", "", ord.line)
         ord.line = gsub("\\.", "", ord.line)
         ord.line = gsub(".*name: ", "", ord.line)
-  
+
         if (length(ord.line) == 0){ord.line = "Not-Found" }
-  
+
         unlink("output.txt")
-  
+
         #Saves the data
         set(collect.data, i = as.integer(index.val), j = match("Sample", header.data), value =  gsub(".fa$", "", samples[i]) )
         set(collect.data, i = as.integer(index.val), j = match("GenBank_ID", header.data), value =  sample.data$sacc[j])
@@ -388,32 +403,32 @@ barcodeSampleScan = function(input.reads = NULL,
         index.val = index.val + as.integer(1)
       }#end j loop
     }#end i loop
-  
+
     #Finds the best match per each sample
     all.data = collect.data[collect.data$Sample != 0,]
     samples = unique(all.data$Sample)
-  
+
     spp.data = c()
     for (k in 1:length(samples)){
-  
+
       #Removes duplicate species from the same genbank code (spp data)
       tmp.data = all.data[all.data$Sample %in% samples[k],]
       #tmp.data = tmp.data[!duplicated(tmp.data$GenBank_Species),]
       #spp.data = rbind(spp.data, tmp.data)
-  
+
       #Filters to the best matches
       best.data = tmp.data[tmp.data$bitscore == max(tmp.data$bitscore),]
       best.data = best.data[best.data$pident == max(best.data$pident),]
       best.data = best.data[best.data$evalue == min(best.data$evalue),]
       best.data = best.data[best.data$coverage == max(best.data$coverage),][1]
       spp.data = rbind(spp.data, best.data)
-  
+
     }#end i loop
-  
+
     #Saves the two datasets
     write.csv(all.data, paste0(output.directory, "/All-top-matches_Samples2Genbank.csv"), row.names = F)
     write.csv(spp.data, paste0(output.directory, "/Best-top-match_Samples2GenBank.csv"), row.names = F)
-    
+
   }################## end GenBank if
 
 }#end function

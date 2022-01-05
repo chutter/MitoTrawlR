@@ -43,7 +43,6 @@ annotateMitoContigs = function(contig.folder = NULL,
   # overwrite = TRUE
   # quiet = FALSE
   # organism.type = "vertebrate"
-  # trnascan.path = "/Users/chutter/miniconda3/bin/tRNAscan-SE"
 
   if (is.null(blast.path) == FALSE){
     b.string = unlist(strsplit(blast.path, ""))
@@ -229,9 +228,10 @@ annotateMitoContigs = function(contig.folder = NULL,
         cut.contigs = append(cut.contigs, new.contig)
       }
 
-      cap3.contigs = runCap3(cut.contigs)
+      cap3.contigs = runCap3(cut.contigs,
+                             cap3.path = cap3.path)
       #Saves if there is one contig
-      if (length(cap3.contigs) == 1){
+      if (length(cap3.contigs) == 1 && cap3.contigs != 0){
         new.contig = cap3.contigs
         names(new.contig) = loci.names[j]
         good.data = append(good.data, new.contig)
@@ -244,7 +244,7 @@ annotateMitoContigs = function(contig.folder = NULL,
         index = 1
         for (k in 1:(nrow(sub.data)-1)){
 
-          if (nrow(sub.data)-1 == k){ break }
+          if (nrow(sub.data)-1 <= k){ break }
           if (nrow(sub.data) == 1){ break }
 
           #If they are overlapping
@@ -393,124 +393,130 @@ annotateMitoContigs = function(contig.folder = NULL,
                         organism.type = "vertebrate",
                         quiet = TRUE)
 
-    #Remove duplicate RNAs
-    if (length(unique(good.match$qName)) == 1){
-      rna.data = rna.data[rna.data$contig %in% unique(good.match$qName),]
-    }
+    if (is.null(rna.data) == FALSE){
 
-    rna.contigs = Biostrings::DNAStringSet()
-    for (j in 1:nrow(rna.data)){
+      #Remove duplicate RNAs
+      if (length(unique(good.match$qName)) == 1){
+        rna.data = rna.data[rna.data$contig %in% unique(good.match$qName),]
+      }
 
-      new.contig = Biostrings::subseq(contigs[names(contigs) == rna.data$contig[j]],
-                                       start = rna.data$start[j],
-                                       end = rna.data$end[j])
+      rna.contigs = Biostrings::DNAStringSet()
+      for (j in 1:nrow(rna.data)){
 
-      names(new.contig) = paste0("tRNA-", rna.data$type[j])
-      rna.contigs = append(rna.contigs, new.contig)
-    }#end j loop
+        new.contig = Biostrings::subseq(contigs[names(contigs) == rna.data$contig[j]],
+                                         start = rna.data$start[j],
+                                         end = rna.data$end[j])
 
-    good.data = append(good.data, rna.contigs)
+        names(new.contig) = paste0("tRNA-", rna.data$type[j])
+        rna.contigs = append(rna.contigs, new.contig)
+      }#end j loop
 
-    rna.names = unique(rna.data$type)
-    refine.match = good.match[order(good.match$qStart),]
+      good.data = append(good.data, rna.contigs)
+      rna.names = unique(rna.data$type)
 
-    for (x in 1:nrow(refine.match)) {
-      if (refine.match$qDir[x] == "+"){
-        refine.match$qStart[x] = refine.match$qStart[x] - (refine.match$tStart[x] - 1)
-        refine.match$qEnd[x] = refine.match$qEnd[x] + (refine.match$tLen[x] - refine.match$tEnd[x])
-      } #end + if
+      add.rna = data.frame(contig = rna.data$contig,
+                           name = paste0("tRNA-", rna.data$type),
+                           start = rna.data$start,
+                           end = rna.data$end,
+                           direction = rna.data$dir)
 
-      if (refine.match$qDir[x] == "-"){
-        refine.match$qEnd[x] = refine.match$qEnd[x] + (refine.match$tStart[x] - 1)
-        refine.match$qStart[x] = refine.match$qStart[x] - (refine.match$tLen[x] - refine.match$tEnd[x])
-      } #end - if
-    }#end x loop
+    } else { add.rna = data.frame() } #end null if
 
-    #### TO DO:
-    #### Fix D-loop, combine into 1 with large range and fix ending and beginning
-
-    # #Sets up new data
-    # new.data = data.frame(contig = as.character(),
-    #                       feature = as.character(),
-    #                       tStart = as.numeric(),
-    #                       tEnd = as.numeric(),
-    #                       bStart = as.numeric(),
-    #                       bEnd = as.numeric(),
-    #                       dir = as.numeric(),
-    #                       blast = as.logical(),
-    #                       tRNAScan = as.logical())
+    # Fix later, negative starts when readjsting
+    # refine.match = good.match[order(good.match$qStart),]
     #
-    # for (x in 1:length(rna.names)){
+    # for (x in 1:nrow(refine.match)) {
+    #   if (refine.match$qDir[x] == "+"){
+    #     refine.match$qStart[x] = refine.match$qStart[x] - (refine.match$tStart[x] - 1)
+    #     refine.match$qEnd[x] = refine.match$qEnd[x] + (refine.match$tLen[x] - refine.match$tEnd[x])
+    #   } #end + if
     #
-    #   temp.good = refine.match[grep(rna.names[x], refine.match$tName),]
-    #   temp.rna = rna.data[rna.data$type == rna.names[x],]
+    #   if (refine.match$qDir[x] == "-"){
+    #     refine.match$qEnd[x] = refine.match$qEnd[x] + (refine.match$tStart[x] - 1)
+    #     refine.match$qStart[x] = refine.match$qStart[x] - (refine.match$tLen[x] - refine.match$tEnd[x])
+    #   } #end - if
+    # }#end x loop
     #
-    #   #If there were no reference matches, uses tRNA match
-    #   if (nrow(temp.good) == 0){
-    #     #Add to the annotation file and check coordinates
-    #     new.entry = data.frame(contig = temp.rna$contig,
-    #                            feature = paste0("0X_tRNA_", temp.rna$type),
-    #                            tStart = temp.rna$start,
-    #                            tEnd = temp.rna$end,
-    #                            bStart = NA,
-    #                            bEnd = NA,
-    #                            dir = temp.rna$dir,
-    #                            blast = FALSE,
-    #                            tRNAScan = TRUE)
-    #     new.data = rbind(new.data, new.entry)
-    #     next
-    #   }#end if
-    #
-    #   #Deals with the tRNAs with the same name
-    #   if (nrow(temp.good) >= 2){
-    #     temp.rna = temp.rna[temp.rna$contig %in% temp.good$qName,]
-    #     temp.good = temp.good[order(temp.good$qStart),]
-    #     temp.rna = temp.rna[order(temp.rna$start),]
-    #     #Add to the annotation file and check coordinates
-    #     new.entry = data.frame(contig = temp.good$qName,
-    #                            feature = temp.good$tName,
-    #                            tStart = temp.good$tStart,
-    #                            tEnd = temp.good$tEnd,
-    #                            bStart = temp.good$qStart,
-    #                            bEnd = temp.good$qEnd,
-    #                            dir = temp.good$qDir,
-    #                            blast = TRUE,
-    #                            tRNAScan = TRUE)
-    #     new.data = rbind(new.data, new.entry)
-    #     next
-    #   }
-    #
-    #   #Duplciate contigs, picks the filtered match set
-    #   if (nrow(temp.rna) >= 2){
-    #     temp.rna = temp.rna[temp.rna$contig %in% temp.good$qName,]
-    #   }
-    #
-    #   #Even worse! have to pick the best
-    #   if (nrow(temp.rna) >= 2){
-    #     temp.rna = temp.rna[temp.rna$score == max(temp.rna$score),][1,]
-    #     next }
-    #
-    #   #Add to the annotation file and check coordinates
-    #   new.entry = data.frame(contig = temp.rna$contig,
-    #                          feature = temp.good$tName,
-    #                          tStart = temp.rna$start,
-    #                          tEnd = temp.rna$end,
-    #                          bStart = temp.good$qStart,
-    #                          bEnd = temp.good$qEnd,
-    #                          dir = temp.rna$dir,
-    #                          blast = TRUE,
-    #                          tRNAScan = TRUE)
-    #   new.data = rbind(new.data, new.entry)
-    #
-    # }#End X
+    # #### TO DO:
+      #### Fix D-loop, combine into 1 with large range and fix ending and beginning
+
+      # #Sets up new data
+      # new.data = data.frame(contig = as.character(),
+      #                       feature = as.character(),
+      #                       tStart = as.numeric(),
+      #                       tEnd = as.numeric(),
+      #                       bStart = as.numeric(),
+      #                       bEnd = as.numeric(),
+      #                       dir = as.numeric(),
+      #                       blast = as.logical(),
+      #                       tRNAScan = as.logical())
+      #
+      # for (x in 1:length(rna.names)){
+      #
+      #   temp.good = refine.match[grep(rna.names[x], refine.match$tName),]
+      #   temp.rna = rna.data[rna.data$type == rna.names[x],]
+      #
+      #   #If there were no reference matches, uses tRNA match
+      #   if (nrow(temp.good) == 0){
+      #     #Add to the annotation file and check coordinates
+      #     new.entry = data.frame(contig = temp.rna$contig,
+      #                            feature = paste0("0X_tRNA_", temp.rna$type),
+      #                            tStart = temp.rna$start,
+      #                            tEnd = temp.rna$end,
+      #                            bStart = NA,
+      #                            bEnd = NA,
+      #                            dir = temp.rna$dir,
+      #                            blast = FALSE,
+      #                            tRNAScan = TRUE)
+      #     new.data = rbind(new.data, new.entry)
+      #     next
+      #   }#end if
+      #
+      #   #Deals with the tRNAs with the same name
+      #   if (nrow(temp.good) >= 2){
+      #     temp.rna = temp.rna[temp.rna$contig %in% temp.good$qName,]
+      #     temp.good = temp.good[order(temp.good$qStart),]
+      #     temp.rna = temp.rna[order(temp.rna$start),]
+      #     #Add to the annotation file and check coordinates
+      #     new.entry = data.frame(contig = temp.good$qName,
+      #                            feature = temp.good$tName,
+      #                            tStart = temp.good$tStart,
+      #                            tEnd = temp.good$tEnd,
+      #                            bStart = temp.good$qStart,
+      #                            bEnd = temp.good$qEnd,
+      #                            dir = temp.good$qDir,
+      #                            blast = TRUE,
+      #                            tRNAScan = TRUE)
+      #     new.data = rbind(new.data, new.entry)
+      #     next
+      #   }
+      #
+      #   #Duplciate contigs, picks the filtered match set
+      #   if (nrow(temp.rna) >= 2){
+      #     temp.rna = temp.rna[temp.rna$contig %in% temp.good$qName,]
+      #   }
+      #
+      #   #Even worse! have to pick the best
+      #   if (nrow(temp.rna) >= 2){
+      #     temp.rna = temp.rna[temp.rna$score == max(temp.rna$score),][1,]
+      #     next }
+      #
+      #   #Add to the annotation file and check coordinates
+      #   new.entry = data.frame(contig = temp.rna$contig,
+      #                          feature = temp.good$tName,
+      #                          tStart = temp.rna$start,
+      #                          tEnd = temp.rna$end,
+      #                          bStart = temp.good$qStart,
+      #                          bEnd = temp.good$qEnd,
+      #                          dir = temp.rna$dir,
+      #                          blast = TRUE,
+      #                          tRNAScan = TRUE)
+      #   new.data = rbind(new.data, new.entry)
+      #
+      # }#End X
 
 
-    add.rna = data.frame(contig = rna.data$contig,
-                         name = paste0("tRNA-", rna.data$type),
-                         start = rna.data$start,
-                         end = rna.data$end,
-                         direction = rna.data$dir)
-
+    refine.match = good.match
     add.cds = data.frame(contig = refine.match$qName,
                          name = refine.match$tName,
                          start = refine.match$qStart,
@@ -536,6 +542,8 @@ annotateMitoContigs = function(contig.folder = NULL,
     write.loci = as.list(as.character(good.contigs))
     PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
                paste0("Annotations/sample-contigs/", spp.samples[i], "_sampleContigs.fa"), nbchar = 1000000, as.string = T)
+
+    print(paste0("Finished annotation for ", spp.samples[i]))
 
   }#End i loop
 

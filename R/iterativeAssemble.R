@@ -68,19 +68,20 @@ iterativeAssemble = function(input.reads = NULL,
                              quiet = TRUE) {
 
   # #Debug
-  # input.reads = sample.reads
-  # reference = paste0(reference.name, "/refGenome.fa")
-  # min.ref.id = 0.80
-  # memory = 8
-  # threads = 6
-  # max.iterations = 20
-  # min.iterations = 5
-  # min.length = 16000
-  # max.length = 40000
-  # spades.path = "/usr/local/Spades/bin/spades.py"
-  # bbmap.path = "/usr/local/bin/bbmap.sh"
+  # input.reads = it.sample.reads
+  # reference = paste0(output.directory, "/blast-reference/reference.fa")
+  # min.ref.id = 0.7
+  # max.iterations = 10
+  # min.iterations = 3
+  # min.length = Biostrings::width(ref.seq)
+  # max.length = Biostrings::width(ref.seq)+(Biostrings::width(ref.seq) * 0.10)
+  # spades.path = spades.path
+  # bbmap.path = bbmap.path
+  # #bbmap.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin/java /Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin/"
+  # blast.path = blast.path
+  # cap3.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
   # mapper = "bbmap"
-  #Same adds to bbmap path
+  # quiet = FALSE
 
   if (is.null(spades.path) == FALSE){
     b.string = unlist(strsplit(spades.path, ""))
@@ -179,6 +180,7 @@ iterativeAssemble = function(input.reads = NULL,
       }#end 1 read
 
       if (length(set.reads) >= 2){
+
         #Pick out matching reads to mt Genomes
         system(paste0(bbmap.path, "bbmap.sh -Xmx", memory, "g ref=iterative_temp/current_seed.fa", " in1=", set.reads[1],
                       " in2=", set.reads[2], " vslow k=12 minid=", min.ref.id,
@@ -254,7 +256,8 @@ iterativeAssemble = function(input.reads = NULL,
         save.seqs = append(save.seqs, combined.contigs)
         names(save.seqs) = paste0("seq", rep(1:length(save.seqs), by = 1))
         combined.contigs = MitoCap::runCap3(contigs = save.seqs,
-                                            read.R = TRUE)
+                                            read.R = TRUE,
+                                            cap3.path = cap3.path)
       } else { combined.contigs = Biostrings::DNAStringSet() }
     } else { combined.contigs = append(combined.contigs, spades.contigs)}
 
@@ -269,7 +272,8 @@ iterativeAssemble = function(input.reads = NULL,
     combined.contigs = append(combined.contigs, spades.contigs)
     if (length(combined.contigs) > 1){
       combined.contigs = MitoCap::runCap3(contigs = combined.contigs,
-                                          read.R = TRUE)
+                                          read.R = TRUE,
+                                          cap3.path = cap3.path)
     }
 
     #Blasts and remvoes stuff that doesn't match to reference
@@ -292,16 +296,16 @@ iterativeAssemble = function(input.reads = NULL,
                                          remove.bad = T)
     }#end if
 
-    if (max(Biostrings::width(combined.contigs)) >= min.length){
-      circ.contigs = combined.contigs[Biostrings::width(combined.contigs) >= min.length]
-      circ.genome = isCircularGenome(circ.contigs)
-
-      if (circ.genome == TRUE) {
-        print(paste("Circular genome assembled!"))
-        seeding = F
-        combined.contigs = circ.contigs
-      }
-    }#end if
+    # if (max(Biostrings::width(combined.contigs)) >= min.length){
+    #   circ.contigs = combined.contigs[Biostrings::width(combined.contigs) >= min.length]
+    #   circ.genome = isCircularGenome(circ.contigs)
+    #
+    #   if (circ.genome == TRUE) {
+    #     print(paste("Circular genome assembled!"))
+    #     seeding = F
+    #     combined.contigs = circ.contigs
+    #   }
+    # }#end if
 
     #Check size
     new.len = sum(Biostrings::width(combined.contigs))
