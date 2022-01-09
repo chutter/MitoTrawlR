@@ -38,11 +38,11 @@ annotateMitoContigs = function(contig.folder = NULL,
                                quiet = TRUE) {
 
   # # #Debug
-  # reference.name = "reference"
-  # contig.folder = "draftContigs"
-  # overwrite = TRUE
-  # quiet = FALSE
-  # organism.type = "vertebrate"
+   reference.name = "reference"
+   contig.folder = "draftContigs"
+   overwrite = TRUE
+   quiet = FALSE
+   organism.type = "vertebrate"
 
   if (is.null(blast.path) == FALSE){
     b.string = unlist(strsplit(blast.path, ""))
@@ -388,22 +388,24 @@ annotateMitoContigs = function(contig.folder = NULL,
     ##############################################
 
     ### Annotate tRNAs
-    rna.data = tRNAscan(contigs = contigs,
+    rna.data = tRNAscan(contigs = good.data,
                         tRNAscan.path = tRNAscan.path,
                         organism.type = "vertebrate",
                         quiet = TRUE)
 
+    if (is.null(rna.data) == FALSE){ if (nrow(rna.data) == 0){ rna.data = NULL }}
+
     if (is.null(rna.data) == FALSE){
 
-      #Remove duplicate RNAs
-      if (length(unique(good.match$qName)) == 1){
-        rna.data = rna.data[rna.data$contig %in% unique(good.match$qName),]
-      }
+      # #Remove duplicate RNAs
+      # if (length(unique(good.match$qName)) == 1){
+      #   rna.data = rna.data[rna.data$contig %in% unique(good.match$qName),]
+      # }
 
       rna.contigs = Biostrings::DNAStringSet()
       for (j in 1:nrow(rna.data)){
 
-        new.contig = Biostrings::subseq(contigs[names(contigs) == rna.data$contig[j]],
+        new.contig = Biostrings::subseq(good.data[names(good.data) == rna.data$contig[j]],
                                          start = rna.data$start[j],
                                          end = rna.data$end[j])
 
@@ -537,9 +539,9 @@ annotateMitoContigs = function(contig.folder = NULL,
                paste0("Annotations/sample-markers/", spp.samples[i], "_sampleMarkers.fa"), nbchar = 1000000, as.string = T)
 
     #Writes the full mitochondrial genome file
-    good.contigs = contigs[names(contigs) %in% unique(refine.match$qName)]
-    names(good.contigs) = paste0(names(good.contigs))
-    write.loci = as.list(as.character(good.contigs))
+    #good.contigs = contigs[names(contigs) %in% unique(refine.match$qName)]
+    #names(good.contigs) = paste0(names(good.contigs))
+    write.loci = as.list(as.character(good.data))
     PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
                paste0("Annotations/sample-contigs/", spp.samples[i], "_sampleContigs.fa"), nbchar = 1000000, as.string = T)
 
