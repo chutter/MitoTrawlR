@@ -34,12 +34,12 @@ alignMitogenomes = function(alignment.folder = NULL,
                             overwrite = FALSE) {
 
   #Debug
-   # alignment.folder = "Alignments/untrimmed-alignments"
-   # reference.name = "reference"
-   # draft.contigs = "draftContigs"
-   # output.dir = "MitoGenomes"
-   # dataset.name = "untrimmed"
-   # overwrite = TRUE
+   alignment.folder = "Alignments/untrimmed-alignments"
+   reference.name = "reference"
+   draft.contigs = "draftContigs"
+   output.dir = "MitoGenomes"
+   dataset.name = "untrimmed"
+   overwrite = TRUE
 
   if (dir.exists(output.dir) == FALSE) { dir.create(output.dir) }
   if (dir.exists(output.dir) == TRUE) {
@@ -48,6 +48,14 @@ alignMitogenomes = function(alignment.folder = NULL,
       dir.create(output.dir)
     }
   }#end dir exists
+
+   if (dir.exists(paste0(output.dir, "/logs")) == FALSE) { dir.create(paste0(output.dir, "/logs")) }
+   if (dir.exists(paste0(output.dir, "/logs")) == TRUE) {
+     if (overwrite == TRUE){
+       system(paste0("rm -r ", output.dir, "/logs"))
+       dir.create(paste0(output.dir, "/logs"))
+     }
+   }#end dir exists
 
   #Gets the samples
   locus.names = list.files(alignment.folder)
@@ -97,7 +105,7 @@ alignMitogenomes = function(alignment.folder = NULL,
                                    threads = 1,
                                    cleanup.files = T,
                                    mafft.path = mafft.path,
-                                   quiet = F)
+                                   quiet = T)
 
     #Use taxa remove
     mat.align = strsplit(as.character(new.align), "")
@@ -164,8 +172,8 @@ alignMitogenomes = function(alignment.folder = NULL,
   }#end i loop
 
   #Save files
-  write.csv(collect.data.bp, file = paste0("logs/", dataset.name, "_mito-alignment_bp-count.csv"),  row.names = F)
-  write.csv(collect.data.pr, file = paste0("logs/", dataset.name, "_mito-alignment_bp-prop.csv"),  row.names = F)
+  write.csv(collect.data.bp, file = paste0(output.dir, "/logs/", dataset.name, "_mito-alignment_bp-count.csv"),  row.names = F)
+  write.csv(collect.data.pr, file = paste0(output.dir, "/logs/", dataset.name, "_mito-alignment_bp-prop.csv"),  row.names = F)
 
   write.genome = as.matrix(ape::as.DNAbin(draft.genome) )
   PhyloCap::writePhylip(write.genome, file= paste0(output.dir, "/alignments/", dataset.name, "_mitogenome_alignment.phy"), interleave = F)
