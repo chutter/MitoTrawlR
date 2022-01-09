@@ -33,13 +33,13 @@ alignMitogenomes = function(alignment.folder = NULL,
                             dataset.name = "alignments",
                             overwrite = FALSE) {
 
-  #Debug
-   alignment.folder = "Alignments/untrimmed-alignments"
-   reference.name = "reference"
-   draft.contigs = "draftContigs"
-   output.dir = "MitoGenomes"
-   dataset.name = "untrimmed"
-   overwrite = TRUE
+  # #Debug
+  #  alignment.folder = "Alignments/untrimmed-alignments"
+  #  reference.name = "reference"
+  #  draft.contigs = "draftContigs"
+  #  output.dir = "MitoGenomes"
+  #  dataset.name = "untrimmed"
+  #  overwrite = TRUE
 
   if (dir.exists(output.dir) == FALSE) { dir.create(output.dir) }
   if (dir.exists(output.dir) == TRUE) {
