@@ -37,12 +37,12 @@ annotateMitoContigs = function(contig.folder = NULL,
                                overwrite = FALSE,
                                quiet = TRUE) {
 
-  # # #Debug
-   reference.name = "reference"
-   contig.folder = "draftContigs"
-   overwrite = TRUE
-   quiet = FALSE
-   organism.type = "vertebrate"
+  # # # #Debug
+  #  reference.name = "reference"
+  #  contig.folder = "draftContigs"
+  #  overwrite = TRUE
+  #  quiet = FALSE
+  #  organism.type = "vertebrate"
 
   if (is.null(blast.path) == FALSE){
     b.string = unlist(strsplit(blast.path, ""))
