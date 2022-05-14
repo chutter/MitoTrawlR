@@ -94,12 +94,12 @@ runCap3 = function(contigs = input.contigs,
  # e = 30
 #  s = 900
 
-  if (is.null(cap3.path) == FALSE){
-    b.string = unlist(strsplit(cap3.path, ""))
-    if (b.string[length(b.string)] != "/") {
-      cap3.path = paste0(append(b.string, "/"), collapse = "")
-    }#end if
-  } else { cap3.path = "" }
+  # if (is.null(cap3.path) == FALSE){
+  #   b.string = unlist(strsplit(cap3.path, ""))
+  #   if (b.string[length(b.string)] != "/") {
+  #     cap3.path = paste0(append(b.string, "/"), collapse = "")
+  #   }#end if
+  # } else { cap3.path = "" }
 
   if (class(contigs) != "character") {
     write.loci = as.list(as.character(contigs))
