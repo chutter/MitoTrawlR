@@ -255,7 +255,7 @@ iterativeAssemble = function(input.reads = NULL,
       if (length(save.seqs) != 0){
         save.seqs = append(save.seqs, combined.contigs)
         names(save.seqs) = paste0("seq", rep(1:length(save.seqs), by = 1))
-        combined.contigs = runCap3(contigs = save.seqs,
+        combined.contigs = MitoCap::runCap3(contigs = save.seqs,
                                             read.R = TRUE,
                                             cap3.path = cap3.path)
       } else { combined.contigs = Biostrings::DNAStringSet() }

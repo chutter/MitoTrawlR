@@ -207,6 +207,7 @@ mitochondrialCapture = function(input.reads = NULL,
                                      spades.path = spades.path,
                                      bbmap.path = bbmap.path,
                                      blast.path = blast.path,
+                                     cap3.path = cap3.path,
                                      mapper = "bbmap")
 
     if (length(mito.contigs) == 0){
