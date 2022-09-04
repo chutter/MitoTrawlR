@@ -30,14 +30,14 @@ buildReference = function(reference.fasta = NULL,
                           rep.origin = FALSE) {
 
   #Debug
-  # reference.fasta = "/Volumes/Rodents/Murinae/Mitochondrial_genomes/Mus_mus.fa"
-  # annotation.file = "/Volumes/Rodents/Murinae/Mitochondrial_genomes/Mus_mus.txt"
+  #reference.fasta = "/Users/chutter/Dropbox/Research/1_Main-Projects/1_Collaborative-Projects/Microhylidae_SeqCap/New_Work_2022/MitoCap/Mantella.fa"
+  #annotation.file = "/Users/chutter/Dropbox/Research/1_Main-Projects/1_Collaborative-Projects/Microhylidae_SeqCap/New_Work_2022/MitoCap/Mantella.gff"
   # annotation.file = "/Volumes/Rodents/Murinae/Mitochondrial_genomes/Mus_mus.gb"
   # annotation.file = "/Volumes/Rodents/Murinae/Mitochondrial_genomes/Mus_mus.gff"
   # annotation.type = "gff"
-  # reference.name = "reference"
-  # overwrite = TRUE
-  # rep.origin = FALSE
+   #reference.name = "reference"
+   #overwrite = TRUE
+   #rep.origin = FALSE
 
   if (annotation.type != "genbank" && is.null(reference.fasta) == TRUE){
     stop("Please provide a reference fasta file or a single genbank file.")
@@ -199,6 +199,11 @@ buildReference = function(reference.fasta = NULL,
       new.seq = Biostrings::subseq(ref.genome, start = start, end = end)
       if (as.character(temp.data$strand) == "-"){ new.seq = Biostrings::reverseComplement(new.seq) }
       names(new.seq) = paste0(sprintf("%02d", i), "_", temp.data$type, "_", temp.data$name)
+
+      if (nchar(names(new.seq)) >= 50){
+        names(new.seq) = substr(names(new.seq), 1, 50)
+      }
+
       save.seq = append(save.seq, new.seq)
   }#end i loop
 
