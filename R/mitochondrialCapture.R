@@ -82,6 +82,22 @@ mitochondrialCapture = function(input.reads = NULL,
   # max.length = 40000
   # spades.path = "/usr/local/Spades/bin/spades.py"
   # bbmap.path = "/usr/local/bin/bbmap.sh"
+#
+#   input.reads = read.directory
+#   reference.name = "reference"
+#   output.dir = "draftContigs"
+#   min.iterations = min.iterations
+#   max.iterations = max.iterations
+#   min.length = min.length
+#   max.length = max.length
+#   min.ref.id = min.read.match
+#   memory = memory
+#   threads = threads
+#   spades.path = spades.path
+#   bbmap.path = bbmap.path
+#   cap3.path = cap3.path
+#   blast.path = blast.path
+#   overwrite = overwrite
 
 
   if (is.null(spades.path) == FALSE){
