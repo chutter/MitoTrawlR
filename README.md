@@ -1,4 +1,4 @@
-# MitoCap
+# MitoMineR
 An R package for iterative assembly and annotating mitochondrial genomes from short-read sequence data. 
 
 The R package can be run as a single pipeline with a configuration file or through separate functions to create a customized pipeline. In one command, the pipeline will perform: 
