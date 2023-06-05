@@ -1,4 +1,4 @@
-Package: MitoCap
+Package: MitoMiner
 Title: Package For extracting, assembling, annotating and aligning mitochondrial genomes from high-throughput sequencing data
 Version: 0.1.0
 Authors@R: 
