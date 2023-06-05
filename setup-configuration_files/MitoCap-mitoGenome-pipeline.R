@@ -1,39 +1,34 @@
-##########################################################################################3
-##########################################################################################3
-# Optional Step 0: Preprocessing using PhyloCap if needed
-
 ##########################################################################################################
 #Step 1: Mitogenome assembly
 ##########################################################################################################
 
 #Installs updated package version
-devtools::install_github("chutter/PhyloCap", upgrade = "never", dependencies = FALSE)
-library(PhyloCap)
+devtools::install_github("chutter/PhyloProcessR", upgrade = "never", dependencies = FALSE)
+library(PhyloProcessR)
 
 #Installs updated package version
 devtools::install_github("chutter/MitoCap", upgrade = "never", force = TRUE)
-library(MitoCap)
+library(MitoMiner)
 library(foreach)
 
-source("/Volumes/Rodents/Mitogenomes/Crocidura/configuration-file-mitocap.R")
-#source("configuration-file-mitocap.R")
+source("configuration-file-mitocap.R")
 setwd(working.directory)
 
-#Checks if everything is installed
-pass.fail = MitoCap::setupCheck(anaconda.environment =  NULL,
-                                samtools.path = samtools.path,
-                                bwa.path = bwa.path,
-                                spades.path = spades.path,
-                                bbmap.path = bbmap.path,
-                                blast.path = blast.path,
-                                mafft.path = mafft.path,
-                                iqtree.path = iqtree.path,
-                                trimAl.path = trimAl.path,
-                                tRNAscan.path = tRNAscan.path)
+# #Checks if everything is installed
+# pass.fail = MitoCap::setupCheck(anaconda.environment =  NULL,
+#                                 samtools.path = samtools.path,
+#                                 bwa.path = bwa.path,
+#                                 spades.path = spades.path,
+#                                 bbmap.path = bbmap.path,
+#                                 blast.path = blast.path,
+#                                 mafft.path = mafft.path,
+#                                 iqtree.path = iqtree.path,
+#                                 trimAl.path = trimAl.path,
+#                                 tRNAscan.path = tRNAscan.path)
 
-if (pass.fail == FALSE){ stop("Some required programs are missing") } else {
-  print("all required programs are found, MitoCap pipeline continuing...")
-}
+# if (pass.fail == FALSE){ stop("Some required programs are missing") } else {
+#   print("all required programs are found, MitoCap pipeline continuing...")
+# }
 
 # #Makes your reference, be sure to inspect the table it makes to ensure accuracy
 buildReference(reference.fasta = reference.fasta,
