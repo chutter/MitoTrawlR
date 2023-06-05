@@ -111,7 +111,7 @@ markerAlignment = function(input.folder = NULL,
     final.save = as.list(as.character(align.data))
 
     #Saves to folder to run with mafft
-    PhyloCap::writeFasta(sequences = final.save, names = names(final.save),
+    PhyloProcessR::writeFasta(sequences = final.save, names = names(final.save),
                paste0("Alignments/unaligned-markers/", names(ref.data)[i], ".fa"), nbchar = 1000000, as.string = T)
 
     ##############
@@ -137,7 +137,7 @@ markerAlignment = function(input.folder = NULL,
     names(alignment) = gsub(pattern = "_\\|_.*", replacement = "", x = names(alignment))
 
     #Finds the alignemnt pairwise distance from the target
-    dist.data = PhyloCap::pairwiseDistanceTarget(alignment = alignment, target = "Reference")
+    dist.data = PhyloProcessR::pairwiseDistanceTarget(alignment = alignment, target = "Reference")
     good.seqs = which(dist.data <= 0.40)
     rem.align = alignment[as.numeric(good.seqs),]
     rem.align = rem.align[!duplicated(names(rem.align))]
@@ -157,7 +157,7 @@ markerAlignment = function(input.folder = NULL,
       final.save = as.list(as.character(rem.align))
 
       #Saves to folder to run with mafft
-      PhyloCap::writeFasta(sequences = final.save, names = names(final.save),
+      PhyloProcessR::writeFasta(sequences = final.save, names = names(final.save),
                            paste0("Alignments/unaligned-markers/", names(ref.data)[i], ".fa"), nbchar = 1000000, as.string = T)
 
       ##############
@@ -225,7 +225,7 @@ markerAlignment = function(input.folder = NULL,
 
     #readies for saving
     aligned.set = as.matrix(ape::as.DNAbin(align.list) )
-    PhyloCap::writePhylip(aligned.set, file=paste0("Alignments/untrimmed-alignments/", names(ref.data)[i], ".phy"), interleave = F)
+    PhyloProcessR::writePhylip(aligned.set, file=paste0("Alignments/untrimmed-alignments/", names(ref.data)[i], ".phy"), interleave = F)
     system(paste0("rm Alignments/unaligned-markers/", names(ref.data)[i], "_align.fa"))
   }#end i loop
 

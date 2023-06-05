@@ -7,8 +7,8 @@ devtools::install_github("chutter/PhyloProcessR", upgrade = "never", dependencie
 library(PhyloProcessR)
 
 #Installs updated package version
-devtools::install_github("chutter/MitoMiner", upgrade = "never", force = TRUE)
-library(MitoMiner)
+devtools::install_github("chutter/MitoMineR", upgrade = "never", force = TRUE)
+library(MitoMineR)
 library(foreach)
 
 source("configuration-file-mitominer.R")

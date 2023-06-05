@@ -209,12 +209,12 @@ buildReference = function(reference.fasta = NULL,
 
   #Writes reference loci
   write.loci = as.list(as.character(save.seq))
-  PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+  PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
                        paste0(reference.name, "/refMarkers.fa"), nbchar = 1000000, as.string = T)
 
   #WRites reference mito genome
   write.loci = as.list(as.character(ref.genome))
-  PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+  PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
                        paste0(reference.name, "/refGenome.fa"), nbchar = 1000000, as.string = T)
 
   write.table(all.data, file = paste0(reference.name, "/referenceTable.txt", sep = "\t"), row.names = F, quote = F)

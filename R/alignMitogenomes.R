@@ -98,7 +98,7 @@ alignMitogenomes = function(alignment.folder = NULL,
     ref.seq = ref.data[names(ref.data) %in% locus.names[i]]
     names(ref.seq) = "Reference"
 
-    new.align = PhyloCap::runMafft(sequence.data = align,
+    new.align = PhyloProcessR::runMafft(sequence.data = align,
                                    add.contigs = ref.seq,
                                    algorithm = "add",
                                    adjust.direction = T,
@@ -176,7 +176,7 @@ alignMitogenomes = function(alignment.folder = NULL,
   write.csv(collect.data.pr, file = paste0(output.dir, "/logs/", dataset.name, "_mito-alignment_bp-prop.csv"),  row.names = F)
 
   write.genome = as.matrix(ape::as.DNAbin(draft.genome) )
-  PhyloCap::writePhylip(write.genome, file= paste0(output.dir, "/alignments/", dataset.name, "_mitogenome_alignment.phy"), interleave = F)
+  PhyloProcessR::writePhylip(write.genome, file= paste0(output.dir, "/alignments/", dataset.name, "_mitogenome_alignment.phy"), interleave = F)
   write.table(feature.data, file = paste0(output.dir, "/alignments/", dataset.name, "_alignment_feature_table.txt"),  row.names = F, quote = F)
 
 }#end function

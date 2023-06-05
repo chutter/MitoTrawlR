@@ -535,14 +535,14 @@ annotateMitoContigs = function(contig.folder = NULL,
     names(good.data) = paste0(spp.samples[i], "_|_", names(good.data))
     good.data = good.data[order(names(good.data))]
     write.loci = as.list(as.character(good.data))
-    PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+    PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
                paste0("Annotations/sample-markers/", spp.samples[i], "_sampleMarkers.fa"), nbchar = 1000000, as.string = T)
 
     #Writes the full mitochondrial genome file
     #good.contigs = contigs[names(contigs) %in% unique(refine.match$qName)]
     #names(good.contigs) = paste0(names(good.contigs))
     write.loci = as.list(as.character(good.data))
-    PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+    PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
                paste0("Annotations/sample-contigs/", spp.samples[i], "_sampleContigs.fa"), nbchar = 1000000, as.string = T)
 
     print(paste0("Finished annotation for ", spp.samples[i]))

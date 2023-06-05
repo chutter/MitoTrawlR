@@ -233,7 +233,7 @@ mitochondrialCapture = function(input.reads = NULL,
     #Writes contigs
     names(mito.contigs) = paste0("seq", rep(1:length(mito.contigs), by = 1))
     write.loci = as.list(as.character(mito.contigs))
-    PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+    PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
                          paste0(output.dir, "/", samples[i], ".fa"), nbchar = 1000000, as.string = T)
 
     #Delete combined files
