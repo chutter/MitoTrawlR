@@ -1,4 +1,4 @@
-# MitoTrawleR
+# MitoTrawlR
 
 An R package for iterative assembly and annotating mitochondrial genomes from short-read sequence data. 
 
