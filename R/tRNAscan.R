@@ -60,7 +60,7 @@ tRNAscan = function(contigs = NULL,
 
   #Writes contigs for cap3
   write.loci = as.list(as.character(contigs))
-  PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+  PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
              "temp-trna/input_contigs.fa", nbchar = 1000000, as.string = T)
 
   #Runs tRNA scan

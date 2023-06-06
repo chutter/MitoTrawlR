@@ -131,7 +131,7 @@ runCap3 = function(contigs = input.contigs,
 
   if (class(contigs) != "character") {
     write.loci = as.list(as.character(contigs))
-    PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+    PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
                          "input_contigs.fa", nbchar = 1000000, as.string = T)
     contig.file = "input_contigs.fa"
   } else { contig.file = contigs }

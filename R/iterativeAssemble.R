@@ -358,7 +358,7 @@ iterativeAssemble = function(input.reads = NULL,
       #Writes contigs for next seed
       names(combined.contigs) = paste0("seq", rep(1:length(combined.contigs), by = 1))
       write.loci = as.list(as.character(combined.contigs))
-      PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
+      PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
                            "iterative_temp/current_seed.fa", nbchar = 1000000, as.string = T)
     }#end else
 

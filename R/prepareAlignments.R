@@ -277,7 +277,7 @@ prepareAlignments = function(contig.folder = NULL,
     names(good.data) = paste0(spp.samples[i], "_|_", names(good.data))
     good.data = good.data[order(names(good.data)),]
     write.loci = as.list(as.character(good.data))
-    writeFasta(sequences = write.loci, names = names(write.loci),
+    PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
                paste0("Alignments/sample-fastas/", spp.samples[i], "_sampleFasta.fa"), nbchar = 1000000, as.string = T)
 
     system(paste0("rm ", spp.samples[i], "_match.txt"))
