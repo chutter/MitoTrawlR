@@ -88,15 +88,17 @@ min.coverage.bp = 10
 #########################
 ### *** Modify any of these from NULL to the path that the program is found if R is not detecting system paths
 ### e.g. fastp.path = "/conda/PhyloCap/bin
-samtools.path = "/Users/chutter/conda/PhyloCap/bin"
-bwa.path = "/Users/chutter/conda/PhyloCap/bin"
-spades.path = "/Users/chutter/conda/PhyloCap/bin"
-bbmap.path = "/Users/chutter/conda/PhyloCap/bin"
-blast.path = "/Users/chutter/conda/PhyloCap/bin"
-mafft.path = "/Users/chutter/conda/PhyloCap/bin"
-iqtree.path = "/Users/chutter/conda/PhyloCap/bin"
-trimAl.path = "/Users/chutter/conda/PhyloCap/bin"
-tRNAscan.path = "/Users/chutter/conda/PhyloCap/bin"
-cap3.path = "/Users/chutter/conda/PhyloCap/bin"
+### e.g. fastp.path = "/conda/PhyloCap/bin
+conda.env = "/panfs/pfs.local/work/bi/c111h652/conda/envs/MitoTrawlR/bin"
+samtools.path = conda.env
+bwa.path = conda.env
+spades.path = conda.env
+bbmap.path = conda.env
+blast.path = conda.env
+mafft.path = conda.env
+iqtree.path = conda.env
+trimAl.path = conda.env
+tRNAscan.path = conda.env
+cap3.path = conda.env
 
 #### End configuration

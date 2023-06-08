@@ -204,11 +204,12 @@ mitochondrialCapture = function(input.reads = NULL,
       it.sample.reads[2] = paste0(input.reads, "/", samples[i], "_ALL_READ2.fastq.gz")
     } else { it.sample.reads[2] = read2.reads }
 
-    if (length(read3.reads) >= 2) {
+    if (length(read3.reads) >= 3) {
       system(paste0("cat ", paste0(read3.reads, collapse = " "), " > ", input.reads,
                     "/", samples[i], "_ALL_READ3.fastq.gz"))
       it.sample.reads[3] = paste0(input.reads, "/", samples[i], "_ALL_READ3.fastq.gz")
-    } else { it.sample.reads[3] = read3.reads }
+    }
+
 
     #Runs iterative assembly function
     mito.contigs = iterativeAssemble(input.reads = it.sample.reads,

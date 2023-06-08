@@ -7,11 +7,11 @@ devtools::install_github("chutter/PhyloProcessR", upgrade = "never", dependencie
 library(PhyloProcessR)
 
 #Installs updated package version
-devtools::install_github("chutter/MitoTrawlR", upgrade = "never", force = TRUE)
+devtools::install_github("chutter/MitoTrawlR", upgrade = "never", force = TRUE, dependencies = FALSE)
 library(MitoTrawlR)
 library(foreach)
 
-source("configuration-file-mitominer.R")
+source("configuration-file.R")
 setwd(working.directory)
 
 # #Checks if everything is installed
