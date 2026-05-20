@@ -1,54 +1,102 @@
 #' @title trimMitoAlignments
 #'
-#' @description Function for batch trimming a folder of alignments, with the various trimming functions available to select from
+#' @description Batch-trims a folder of mitochondrial marker alignments using
+#'   a pipeline of optional steps: N-to-gap conversion, TrimAl automated
+#'   trimming, edge (external gap) trimming, column gap trimming, and sample
+#'   coverage trimming. Each alignment is optionally assessed for minimum
+#'   quality thresholds before being written to the output directory in phylip
+#'   format. A CSV summary of trimming statistics and a plain-text log file are
+#'   also written.
 #'
-#' @param alignment.dir path to a folder of sequence alignments in phylip format.
+#' @param alignment.dir path to a folder of untrimmed alignments (phylip or
+#'   fasta format).
 #'
-#' @param alignment.format available input alignment formats: fasta or phylip
+#' @param alignment.format format of input alignments: \code{"phylip"} or
+#'   \code{"fasta"}.
 #'
-#' @param output.dir contigs are added into existing alignment if algorithm is "add"
+#' @param output.dir path to the output directory for trimmed alignments.
+#'   Must differ from \code{alignment.dir}.
 #'
-#' @param output.format available output formats: phylip
+#' @param output.format output alignment format; currently only
+#'   \code{"phylip"} is written.
 #'
-#' @param sample.similarity remove samples too divergent from consensus, values 0-1 for proportion similar sites
+#' @param TAPER logical; if TRUE, run TAPER masking (requires \code{julia} and
+#'   TAPER to be installed).
 #'
-#' @param TrimAl if a file name is provided, save.name will be used to save aligment to file as a fasta
+#' @param TAPER.path path to the directory containing the TAPER script.
 #'
-#' @param TrimAl.path path to a folder of sequence alignments in phylip format.
+#' @param julia.path path to the directory containing \code{julia}.
 #'
-#' @param trim.external give a save name if you wnat to save the summary to file.
+#' @param TrimAl logical; if TRUE, run TrimAl automated column trimming.
 #'
-#' @param min.external.percent TRUE to supress mafft screen output
+#' @param TrimAl.path path to the directory containing \code{trimal}.
 #'
-#' @param trim.coverage path to a folder of sequence alignments in phylip format.
+#' @param trim.external logical; if TRUE, trim edge (leading/trailing) gaps
+#'   from the alignment.
 #'
-#' @param min.coverage.percent contigs are added into existing alignment if algorithm is "add"
+#' @param min.external.percent minimum proportion of samples (0--100) that must
+#'   have sequence at a column before it is kept during edge trimming.
 #'
-#' @param trim.column algorithm to use: "add" add sequences with "add.contigs"; "localpair" for local pair align. All others available
+#' @param trim.coverage logical; if TRUE, remove samples with insufficient
+#'   sequence coverage.
 #'
-#' @param min.column.gap.percent TRUE applies the adjust sequence direction function of MAFFT
+#' @param min.coverage.percent minimum percentage of alignment columns a sample
+#'   must cover to be retained.
 #'
-#' @param alignment.assess if a file name is provided, save.name will be used to save aligment to file as a fasta
+#' @param trim.column logical; if TRUE, remove alignment columns with too many
+#'   gaps.
 #'
-#' @param min.sample.bp path to a folder of sequence alignments in phylip format.
+#' @param min.column.gap.percent maximum proportion of gaps (0--100) allowed in
+#'   a column before it is removed.
 #'
-#' @param min.align.length give a save name if you wnat to save the summary to file.
+#' @param convert.ambiguous.sites logical; if TRUE, convert ambiguous IUPAC
+#'   bases to the consensus character.
 #'
-#' @param min.taxa.count TRUE to supress mafft screen output
+#' @param alignment.assess logical; if TRUE, apply final quality assessment
+#'   filters and discard failing alignments.
 #'
-#' @param min.gap.percent if a file name is provided, save.name will be used to save aligment to file as a fasta
+#' @param min.coverage.bp minimum number of unambiguous base pairs a sample
+#'   must have to be retained (passed to \code{trimSampleCoverage}).
 #'
-#' @param overwrite TRUE to supress mafft screen output
+#' @param min.alignment.length minimum alignment length (columns) required for
+#'   an alignment to pass assessment.
 #'
-#' @return an alignment of provided sequences in DNAStringSet format. Also can save alignment as a file with save.name
+#' @param min.taxa.alignment minimum number of taxa required for an alignment
+#'   to pass assessment.
+#'
+#' @param max.alignment.gap.percent maximum overall gap percentage allowed in
+#'   an alignment for it to pass assessment.
+#'
+#' @param threads number of CPU threads (reserved for future parallel use).
+#'
+#' @param memory amount of RAM in GB (reserved for future parallel use).
+#'
+#' @param overwrite logical; if TRUE, already-trimmed files in \code{output.dir}
+#'   are re-trimmed; if FALSE, existing output files are skipped.
+#'
+#' @return Invisibly returns NULL. Writes trimmed phylip alignments to
+#'   \code{output.dir}, a trimming summary CSV, and a plain-text log file.
 #'
 #' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
+#' \dontrun{
+#' trimMitoAlignments(
+#'   alignment.dir          = "Alignments/untrimmed-alignments",
+#'   output.dir             = "Alignments/trimmed-alignments",
+#'   alignment.format       = "phylip",
+#'   TrimAl                 = TRUE,
+#'   TrimAl.path            = "/path/to/trimal/bin",
+#'   trim.external          = TRUE,
+#'   min.external.percent   = 50,
+#'   trim.coverage          = TRUE,
+#'   min.coverage.percent   = 50,
+#'   trim.column            = TRUE,
+#'   min.column.gap.percent = 100,
+#'   alignment.assess       = TRUE,
+#'   min.alignment.length   = 100,
+#'   min.taxa.alignment     = 4,
+#'   overwrite              = FALSE
+#' )
+#' }
 #'
 #' @export
 
@@ -138,7 +186,7 @@ trimMitoAlignments = function(alignment.dir = NULL,
 
   if (dir.exists(output.dir) == TRUE) {
     if (overwrite == TRUE){
-      system(paste0("rm -r ", output.dir))
+      unlink(output.dir, recursive = TRUE)
       dir.create(output.dir)
     }
   } else { dir.create(output.dir) }
@@ -180,8 +228,8 @@ trimMitoAlignments = function(alignment.dir = NULL,
 
   #Loops through each locus and does operations on them
   #save.data = foreach::foreach(i=1:length(align.files), .combine = rbind, .packages = c("PhyloProcessR", "foreach", "Biostrings","Rsamtools", "ape", "stringr", "data.table")) %dopar% {
-  for (i in 1:length(align.files)){
-    print(paste0(align.files[i], " Starting..."))
+  for (i in seq_along(align.files)){
+    message(align.files[i], " Starting...")
 
     #Load in alignments
     if (alignment.format == "phylip"){
@@ -201,7 +249,7 @@ trimMitoAlignments = function(alignment.dir = NULL,
       align = Biostrings::readDNAStringSet(paste0(alignment.dir, "/", align.files[i]) )
       save.name = gsub(".fa$", "", align.files[i])
       save.name = gsub(".fasta$", "", save.name)
-    }#end phylip
+    }#end fasta
 
     # Runs the functions
     #######
@@ -217,13 +265,13 @@ trimMitoAlignments = function(alignment.dir = NULL,
 
 
     #Summarize all this, no functoin
-    data.table::set(save.data, i = as.integer(1), j = match("Alignment", header.data), value = save.name)
-    data.table::set(save.data, i = as.integer(1), j = match("startSamples", header.data), value = length(non.align))
-    data.table::set(save.data, i = as.integer(1), j = match("startLength", header.data), value = Biostrings::width(non.align)[1] )
+    data.table::set(save.data, i = as.integer(i), j = match("Alignment", header.data), value = save.name)
+    data.table::set(save.data, i = as.integer(i), j = match("startSamples", header.data), value = length(non.align))
+    data.table::set(save.data, i = as.integer(i), j = match("startLength", header.data), value = Biostrings::width(non.align)[1] )
     gap.count = PhyloProcessR::countAlignmentGaps(non.align)
-    data.table::set(save.data, i = as.integer(1), j = match("startBasepairs", header.data), value = gap.count[2] - gap.count[1])
-    data.table::set(save.data, i = as.integer(1), j = match("startGaps", header.data), value = gap.count[1])
-    data.table::set(save.data, i = as.integer(1), j = match("startPerGaps", header.data), value = gap.count[3])
+    data.table::set(save.data, i = as.integer(i), j = match("startBasepairs", header.data), value = gap.count[2] - gap.count[1])
+    data.table::set(save.data, i = as.integer(i), j = match("startGaps", header.data), value = gap.count[1])
+    data.table::set(save.data, i = as.integer(i), j = match("startPerGaps", header.data), value = gap.count[3])
 
     #Step 3. Trimal trimming
     if (TrimAl == TRUE && length(non.align) != 0){
@@ -233,12 +281,12 @@ trimMitoAlignments = function(alignment.dir = NULL,
                                 quiet = TRUE)
       non.align = trimal.align
       #Saves stat data
-      data.table::set(save.data, i = as.integer(1), j = match("trimalSamples", header.data), value = length(trimal.align))
-      data.table::set(save.data, i = as.integer(1), j = match("trimalLength", header.data), value = Biostrings::width(trimal.align)[1])
+      data.table::set(save.data, i = as.integer(i), j = match("trimalSamples", header.data), value = length(trimal.align))
+      data.table::set(save.data, i = as.integer(i), j = match("trimalLength", header.data), value = Biostrings::width(trimal.align)[1])
       gap.count = PhyloProcessR::countAlignmentGaps(non.align)
-      data.table::set(save.data, i = as.integer(1), j = match("trimalBasepairs", header.data), value = gap.count[2] - gap.count[1])
-      data.table::set(save.data, i = as.integer(1), j = match("trimalGaps", header.data), value = gap.count[1])
-      data.table::set(save.data, i = as.integer(1), j = match("trimalPerGaps", header.data), value = gap.count[3])
+      data.table::set(save.data, i = as.integer(i), j = match("trimalBasepairs", header.data), value = gap.count[2] - gap.count[1])
+      data.table::set(save.data, i = as.integer(i), j = match("trimalGaps", header.data), value = gap.count[1])
+      data.table::set(save.data, i = as.integer(i), j = match("trimalPerGaps", header.data), value = gap.count[3])
     }#end if
 
     # Step 4. Edge trimming
@@ -246,18 +294,18 @@ trimMitoAlignments = function(alignment.dir = NULL,
       #external trimming function
       edge.align = PhyloProcessR::trimExternal(alignment = non.align,
                                 min.n.seq = ceiling(length(non.align) * (min.external.percent/100)),
-                                codon.trim = F)
+                                codon.trim = FALSE)
 
-      if (class(edge.align) == "numeric") { edge.align = DNAStringSet() }
+      if (is.numeric(edge.align)) { edge.align = Biostrings::DNAStringSet() }
       non.align = edge.align
 
       #Saves stat data
-      data.table::set(save.data, i = as.integer(1), j = match("edgeSamples", header.data), value = length(edge.align))
-      data.table::set(save.data, i = as.integer(1), j = match("edgeLength", header.data), value = Biostrings::width(edge.align)[1])
+      data.table::set(save.data, i = as.integer(i), j = match("edgeSamples", header.data), value = length(edge.align))
+      data.table::set(save.data, i = as.integer(i), j = match("edgeLength", header.data), value = Biostrings::width(edge.align)[1])
       gap.count = PhyloProcessR::countAlignmentGaps(non.align)
-      data.table::set(save.data, i = as.integer(1), j = match("edgeBasepairs", header.data), value = gap.count[2] - gap.count[1])
-      data.table::set(save.data, i = as.integer(1), j = match("edgeGaps", header.data), value = gap.count[1])
-      data.table::set(save.data, i = as.integer(1), j = match("edgePerGaps", header.data), value = gap.count[3])
+      data.table::set(save.data, i = as.integer(i), j = match("edgeBasepairs", header.data), value = gap.count[2] - gap.count[1])
+      data.table::set(save.data, i = as.integer(i), j = match("edgeGaps", header.data), value = gap.count[1])
+      data.table::set(save.data, i = as.integer(i), j = match("edgePerGaps", header.data), value = gap.count[3])
     }#end trim external
 
     if (trim.column == TRUE && length(non.align) != 0){
@@ -266,12 +314,12 @@ trimMitoAlignments = function(alignment.dir = NULL,
                                        min.gap.percent = min.column.gap.percent)
       non.align = col.align
       #Saves stat data
-      data.table::set(save.data, i = as.integer(1), j = match("columnSamples", header.data), value = length(col.align))
-      data.table::set(save.data, i = as.integer(1), j = match("columnLength", header.data), value = Biostrings::width(col.align)[1])
+      data.table::set(save.data, i = as.integer(i), j = match("columnSamples", header.data), value = length(col.align))
+      data.table::set(save.data, i = as.integer(i), j = match("columnLength", header.data), value = Biostrings::width(col.align)[1])
       gap.count = PhyloProcessR::countAlignmentGaps(non.align)
-      data.table::set(save.data, i = as.integer(1), j = match("columnBasepairs", header.data), value = gap.count[2] - gap.count[1])
-      data.table::set(save.data, i = as.integer(1), j = match("columnGaps", header.data), value = gap.count[1])
-      data.table::set(save.data, i = as.integer(1), j = match("columnPerGaps", header.data), value = gap.count[3])
+      data.table::set(save.data, i = as.integer(i), j = match("columnBasepairs", header.data), value = gap.count[2] - gap.count[1])
+      data.table::set(save.data, i = as.integer(i), j = match("columnGaps", header.data), value = gap.count[1])
+      data.table::set(save.data, i = as.integer(i), j = match("columnPerGaps", header.data), value = gap.count[3])
     }#end trim column.
 
     #Step 5. Evaluate and cut out each sample
@@ -284,12 +332,12 @@ trimMitoAlignments = function(alignment.dir = NULL,
 
       non.align = cov.align
       #Saves stat data
-      data.table::set(save.data, i = as.integer(1), j = match("covSamples", header.data), value = length(cov.align))
-      data.table::set(save.data, i = as.integer(1), j = match("covLength", header.data), value = Biostrings::width(cov.align)[1])
+      data.table::set(save.data, i = as.integer(i), j = match("covSamples", header.data), value = length(cov.align))
+      data.table::set(save.data, i = as.integer(i), j = match("covLength", header.data), value = Biostrings::width(cov.align)[1])
       gap.count = PhyloProcessR::countAlignmentGaps(non.align)
-      data.table::set(save.data, i = as.integer(1), j = match("covBasepairs", header.data), value = gap.count[2] - gap.count[1])
-      data.table::set(save.data, i = as.integer(1), j = match("covGaps", header.data), value = gap.count[1])
-      data.table::set(save.data, i = as.integer(1), j = match("covPerGaps", header.data), value = gap.count[3])
+      data.table::set(save.data, i = as.integer(i), j = match("covBasepairs", header.data), value = gap.count[2] - gap.count[1])
+      data.table::set(save.data, i = as.integer(i), j = match("covGaps", header.data), value = gap.count[1])
+      data.table::set(save.data, i = as.integer(i), j = match("covPerGaps", header.data), value = gap.count[3])
     }#end trim.external
 
     #Step 6
@@ -300,25 +348,25 @@ trimMitoAlignments = function(alignment.dir = NULL,
                                     min.taxa.alignment = min.taxa.alignment,
                                     min.alignment.length = min.alignment.length)
 
-      data.table::set(save.data, i = as.integer(1), j = match("Pass", header.data), value = test.result)
+      data.table::set(save.data, i = as.integer(i), j = match("Pass", header.data), value = test.result)
 
       if (test.result == FALSE){
-        print(paste0(align.files[i], " Failed and was discarded."))
+        message(align.files[i], " Failed and was discarded.")
       } else {
         write.temp = strsplit(as.character(non.align), "")
         aligned.set = as.matrix(ape::as.DNAbin(write.temp) )
         #readies for saving
-        PhyloProcessR::writePhylip(aligned.set, file= paste0(output.dir, "/", save.name, ".phy"), interleave = F)
+        PhyloProcessR::writePhylip(aligned.set, file= paste0(output.dir, "/", save.name, ".phy"), interleave = FALSE)
       }#end else test result
     } else {
       #If no alignment assessing is done, saves
       write.temp = strsplit(as.character(non.align), "")
       aligned.set = as.matrix(ape::as.DNAbin(write.temp) )
       #readies for saving
-      PhyloProcessR::writePhylip(aligned.set, file= paste0(output.dir, "/", save.name, ".phy"), interleave = F)
+      PhyloProcessR::writePhylip(aligned.set, file= paste0(output.dir, "/", save.name, ".phy"), interleave = FALSE)
     }#end else
 
-    print(paste0(align.files[i], " Completed."))
+    message(align.files[i], " Completed.")
 
     #rm()
     #gc()
@@ -328,9 +376,9 @@ trimMitoAlignments = function(alignment.dir = NULL,
  # parallel::stopCluster(cl)
 
   #Print and save summary table
-  write.csv(save.data, file = paste0(output.dir, "_trimming-summary.csv"), row.names = F)
+  write.csv(save.data, file = paste0(output.dir, "_trimming-summary.csv"), row.names = FALSE)
   #Saves log file of things
-  if (file.exists(paste0(output.dir, ".log")) == TRUE){ system(paste0("rm ", output.dir, ".log")) }
+  if (file.exists(paste0(output.dir, ".log")) == TRUE){ file.remove(paste0(output.dir, ".log")) }
   fileConn = file(paste0(output.dir, ".log"), open = "w")
   writeLines(paste0("Log file for ", output.dir), fileConn)
   writeLines(paste0("\n"), fileConn)
@@ -342,15 +390,15 @@ trimMitoAlignments = function(alignment.dir = NULL,
   writeLines(paste0("Discarded alignments: ", length(save.data$Pass[save.data$Pass == FALSE])), fileConn)
   writeLines(paste0(""), fileConn)
   writeLines(paste0("Mean samples removed per alignment: ",
-                    mean(save.data$startSamples - save.data$columnSamples)), fileConn)
+                    mean(save.data$startSamples - save.data$covSamples)), fileConn)
   writeLines(paste0("Mean alignment length trimmed per alignment: ",
-                    mean(save.data$startLength - save.data$columnLength)), fileConn)
+                    mean(save.data$startLength - save.data$covLength)), fileConn)
   writeLines(paste0("Mean basepairs trimmed per alignment: ",
-                    mean(save.data$startBasepairs - save.data$columnBasepairs)), fileConn)
+                    mean(save.data$startBasepairs - save.data$covBasepairs)), fileConn)
   writeLines(paste0("Mean gaps trimmed per alignment: ",
-                    mean(save.data$startGaps - save.data$columnGaps)), fileConn)
+                    mean(save.data$startGaps - save.data$covGaps)), fileConn)
   writeLines(paste0("Mean gap percent trimmed per alignment: ",
-                    mean(save.data$startPerGaps - save.data$columnPerGaps)), fileConn)
+                    mean(save.data$startPerGaps - save.data$covPerGaps)), fileConn)
   writeLines(paste0(""), fileConn)
   writeLines(paste0(""), fileConn)
   writeLines(paste0("Individual trimming step summary:"), fileConn)
@@ -368,29 +416,17 @@ trimMitoAlignments = function(alignment.dir = NULL,
   writeLines(paste0("Mean gap percentage: ",
                     mean(save.data$startPerGaps)), fileConn)
   writeLines(paste0(""), fileConn)
-  writeLines(paste0("hmmCleaner:"), fileConn)
-  writeLines(paste0("Mean samples removed: ",
-                    mean(save.data$startSamples - save.data$hmmSamples)), fileConn)
-  writeLines(paste0("Mean alignment length reduction: ",
-                    mean(save.data$startLength - save.data$hmmLength)), fileConn)
-  writeLines(paste0("Mean basepairs trimmed: ",
-                    mean(save.data$startBasepairs - save.data$hmmBasepairs)), fileConn)
-  writeLines(paste0("Mean gap change: ",
-                    mean(save.data$startGaps - save.data$hmmGaps)), fileConn)
-  writeLines(paste0("Mean gap percent change: ",
-                    mean(save.data$startPerGaps - save.data$hmmPerGaps)), fileConn)
-  writeLines(paste0(""), fileConn)
   writeLines(paste0("Trimal:"), fileConn)
   writeLines(paste0("Mean samples removed: ",
-                    mean(save.data$hmmSamples - save.data$trimalSamples)), fileConn)
+                    mean(save.data$startSamples - save.data$trimalSamples)), fileConn)
   writeLines(paste0("Mean alignment length reduction: ",
-                    mean(save.data$hmmLength - save.data$trimalLength)), fileConn)
+                    mean(save.data$startLength - save.data$trimalLength)), fileConn)
   writeLines(paste0("Mean basepairs trimmed: ",
-                    mean(save.data$hmmBasepairs - save.data$trimalBasepairs)), fileConn)
+                    mean(save.data$startBasepairs - save.data$trimalBasepairs)), fileConn)
   writeLines(paste0("Mean gap change: ",
-                    mean(save.data$hmmGaps - save.data$trimalGaps)), fileConn)
+                    mean(save.data$startGaps - save.data$trimalGaps)), fileConn)
   writeLines(paste0("Mean gap percent change: ",
-                    mean(save.data$hmmPerGaps - save.data$trimalPerGaps)), fileConn)
+                    mean(save.data$startPerGaps - save.data$trimalPerGaps)), fileConn)
   writeLines(paste0(""), fileConn)
   writeLines(paste0("External Trimming:"), fileConn)
   writeLines(paste0("Mean samples removed: ",
@@ -404,29 +440,31 @@ trimMitoAlignments = function(alignment.dir = NULL,
   writeLines(paste0("Mean gap percent change: ",
                     mean(save.data$trimalPerGaps - save.data$edgePerGaps)), fileConn)
   writeLines(paste0(""), fileConn)
+  writeLines(paste0("Column Trimming:"), fileConn)
+  writeLines(paste0("Mean samples removed: ",
+                    mean(save.data$edgeSamples - save.data$columnSamples)), fileConn)
+  writeLines(paste0("Mean alignment length reduction: ",
+                    mean(save.data$edgeLength - save.data$columnLength)), fileConn)
+  writeLines(paste0("Mean basepairs trimmed: ",
+                    mean(save.data$edgeBasepairs - save.data$columnBasepairs)), fileConn)
+  writeLines(paste0("Mean gap change: ",
+                    mean(save.data$edgeGaps - save.data$columnGaps)), fileConn)
+  writeLines(paste0("Mean gap percent change: ",
+                    mean(save.data$edgePerGaps - save.data$columnPerGaps)), fileConn)
+  writeLines(paste0(""), fileConn)
   writeLines(paste0("Sample Coverage Trimming:"), fileConn)
   writeLines(paste0("Mean samples removed: ",
-                    mean(save.data$edgeSamples - save.data$covSamples)), fileConn)
+                    mean(save.data$columnSamples - save.data$covSamples)), fileConn)
   writeLines(paste0("Mean alignment length reduction: ",
-                    mean(save.data$edgeLength - save.data$covLength)), fileConn)
+                    mean(save.data$columnLength - save.data$covLength)), fileConn)
   writeLines(paste0("Mean basepairs trimmed: ",
-                    mean(save.data$edgeBasepairs - save.data$covBasepairs)), fileConn)
+                    mean(save.data$columnBasepairs - save.data$covBasepairs)), fileConn)
   writeLines(paste0("Mean gap change: ",
-                    mean(save.data$edgeGaps - save.data$covGaps)), fileConn)
+                    mean(save.data$columnGaps - save.data$covGaps)), fileConn)
   writeLines(paste0("Mean gap percent change: ",
-                    mean(save.data$edgePerGaps - save.data$covPerGaps)), fileConn)
-  writeLines(paste0(""), fileConn)
-  writeLines(paste0("Column Coverage Trimming:"), fileConn)
-  writeLines(paste0("Mean samples removed: ",
-                    mean(save.data$covSamples - save.data$columnSamples)), fileConn)
-  writeLines(paste0("Mean alignment length reduction: ",
-                    mean(save.data$covLength - save.data$columnLength)), fileConn)
-  writeLines(paste0("Mean basepairs trimmed: ",
-                    mean(save.data$covBasepairs - save.data$columnBasepairs)), fileConn)
-  writeLines(paste0("Mean gap change: ",
-                    mean(save.data$covGaps - save.data$columnGaps)), fileConn)
-  writeLines(paste0("Mean gap percent change: ",
-                    mean(save.data$covPerGaps - save.data$columnPerGaps)), fileConn)
+                    mean(save.data$columnPerGaps - save.data$covPerGaps)), fileConn)
   close(fileConn)
+
+  return(invisible(NULL))
 
 } #end function

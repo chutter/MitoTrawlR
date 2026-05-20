@@ -1,22 +1,48 @@
 #' @title buildReference
 #'
-#' @description Function for running the program spades to assemble short read sequencing data
+#' @description Builds a reference marker database from an annotated
+#'   mitochondrial genome. Accepts annotation in GenBank (\code{.gb}), GFF3
+#'   (\code{.gff}), or a simple tab-delimited table format. Extracts each
+#'   annotated feature as an individual FASTA sequence, writes the per-marker
+#'   FASTA (\code{refMarkers.fa}), the whole reference genome FASTA
+#'   (\code{refGenome.fa}), and an annotation table
+#'   (\code{referenceTable.txt}) to the \code{reference.name} directory.
 #'
-#' @param genbank.file path to a folder of sequence alignments in phylip format.
+#' @param reference.fasta path to a FASTA file of the reference mitochondrial
+#'   genome. Required when \code{annotation.type} is \code{"gff"} or
+#'   \code{"table"}; ignored when \code{annotation.type = "genbank"} (the
+#'   sequence is read from the GenBank file).
 #'
-#' @param overwrite path to a folder of sequence alignments in phylip format.
+#' @param annotation.file path to the annotation file. Should be a GenBank
+#'   (\code{.gb}), GFF3 (\code{.gff}), or tab-delimited table file depending
+#'   on \code{annotation.type}.
 #'
-#' @param rep.origin path to a folder of sequence alignments in phylip format.
+#' @param annotation.type format of the annotation file: one of
+#'   \code{"genbank"}, \code{"gff"}, or \code{"table"}.
 #'
-#' @return an alignment of provided sequences in DNAStringSet format. Also can save alignment as a file with save.name
+#' @param reference.name name for the output directory that will hold all
+#'   reference files.
+#'
+#' @param overwrite logical; if TRUE, an existing reference directory is
+#'   deleted and recreated.
+#'
+#' @param rep.origin logical; if TRUE, the replication origin feature
+#'   (\code{rep_origin}) is included in the reference markers.
+#'
+#' @return Invisibly returns NULL. Writes \code{refMarkers.fa},
+#'   \code{refGenome.fa}, and \code{referenceTable.txt} to
+#'   \code{reference.name/}.
 #'
 #' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
+#' \dontrun{
+#' buildReference(
+#'   annotation.file  = "Mus_musculus.gb",
+#'   annotation.type  = "genbank",
+#'   reference.name   = "reference",
+#'   overwrite        = TRUE,
+#'   rep.origin       = FALSE
+#' )
+#' }
 #'
 #' @export
 
@@ -26,7 +52,7 @@ buildReference = function(reference.fasta = NULL,
                           annotation.file = NULL,
                           annotation.type = c("genbank", "table", "gff"),
                           reference.name = "reference",
-                          overwrite = TRUE,
+                          overwrite = FALSE,
                           rep.origin = FALSE) {
 
   #Debug
@@ -39,20 +65,21 @@ buildReference = function(reference.fasta = NULL,
    #overwrite = TRUE
    #rep.origin = FALSE
 
-  if (annotation.type != "genbank" && is.null(reference.fasta) == TRUE){
-    stop("Please provide a reference fasta file or a single genbank file.")
+  annotation.type = match.arg(annotation.type)
+
+  if (annotation.type != "genbank" && is.null(reference.fasta)){
+    stop("Please provide a reference fasta file when annotation.type is 'gff' or 'table'.")
   }
 
-  if (length(annotation.type) != 1){ stop("Only one annotation type can be selected.") }
-
   #Checks for directory existing
-  if (dir.exists(reference.name) == FALSE) { dir.create(reference.name) }
-  if (dir.exists(reference.name) == TRUE) {
-    if (overwrite == TRUE){
-      system(paste0("rm -r ", reference.name))
-      dir.create(reference.name)
-    } else { return("overwrite = FALSE and Mito-Reference directory exists") }
-  }#end dir exists
+  if (dir.exists(reference.name) == FALSE) {
+    dir.create(reference.name)
+  } else if (overwrite == TRUE) {
+    unlink(reference.name, recursive = TRUE)
+    dir.create(reference.name)
+  } else {
+    stop("overwrite = FALSE and output directory '", reference.name, "' already exists.")
+  }
 
 
   ######################################
@@ -60,7 +87,7 @@ buildReference = function(reference.fasta = NULL,
   ######################################
   if (annotation.type == "genbank"){
 
-    gb.data = genbankr::readGenBank(file = annotation.file, partial = T)
+    gb.data = genbankr::readGenBank(file = annotation.file, partial = TRUE)
     ref.genome = gb.data@sequence
     all.data = data.frame(gb.data@genes)
 
@@ -109,7 +136,7 @@ buildReference = function(reference.fasta = NULL,
   ######################################
   if (annotation.type == "gff"){
     ref.genome = Biostrings::readDNAStringSet(file = reference.fasta)
-    names(ref.genome) = reference.name
+    names(ref.genome)[1] = reference.name
     #Pulls in GFF
     gtf.data = data.table::data.table(read.delim(annotation.file, sep = "\t", comment.char = "#"))
 
@@ -121,19 +148,25 @@ buildReference = function(reference.fasta = NULL,
     gtf.data[, un1 := NULL]
     gtf.data[, un2 := NULL]
     gtf.data[, method := NULL]
-    gtf.data[, name := gsub(".*;product=", "", gtf.data$info) ]
-    gtf.data[, name := gsub(";.*", "", gtf.data$name) ]
+
+    # Filter replication origin unless requested
+    if (!rep.origin) {
+      gtf.data = gtf.data[gtf.data$type != "origin_of_replication",]
+    }
+
+    # For each row: prefer gene= (gives short names like ND1, COX1) over product=
+    extract.gff.name = function(info.str) {
+      gene.m = regmatches(info.str, regexpr("(?<=;gene=)[^;]+", info.str, perl = TRUE))
+      if (length(gene.m) > 0 && nzchar(gene.m)) return(gene.m)
+      prod.m = regmatches(info.str, regexpr("(?<=product=)[^;]+", info.str, perl = TRUE))
+      if (length(prod.m) > 0 && nzchar(prod.m)) return(prod.m)
+      return(NA_character_)
+    }
+    gtf.data[, name := sapply(info, extract.gff.name)]
     gtf.data[, info := NULL]
 
-    #Fixes D-loop
-    gtf.data[gtf.data$type == "D_Loop",]$name = "D_loop"
-    gtf.data[gtf.data$type == "D_loop",]$name = "D_loop"
-    gtf.data[gtf.data$type == "D-Loop",]$name = "D_loop"
-    gtf.data[gtf.data$type == "D-loop",]$name = "D_loop"
-    gtf.data[gtf.data$type == "d_Loop",]$name = "D_loop"
-    gtf.data[gtf.data$type == "d_loop",]$name = "D_loop"
-    gtf.data[gtf.data$type == "d-Loop",]$name = "D_loop"
-    gtf.data[gtf.data$type == "d-loop",]$name = "D_loop"
+    #Fixes D-loop (case-insensitive, handles D_loop / D-loop / d-Loop etc.)
+    gtf.data[grepl("^d[-_]loop$", gtf.data$type, ignore.case = TRUE), ]$name = "D_loop"
     gtf.data[, name := gsub(" ", "-", gtf.data$name) ]
     all.data = gtf.data
   }#end GFF
@@ -143,15 +176,15 @@ buildReference = function(reference.fasta = NULL,
   ######################################
   if (annotation.type == "table"){
     ref.genome = Biostrings::readDNAStringSet(file = reference.fasta)
-    names(ref.genome) = reference.name
+    names(ref.genome)[1] = reference.name
     #Pulls in GFF
-    all.data = data.table::data.table(read.table(annotation.file, sep = "\t", header = T))
+    all.data = data.table::data.table(read.table(annotation.file, sep = "\t", header = TRUE))
   }#END TABLE
 
 
   #Goes through each entry and saves
   save.seq = c()
-  for (i in 1:nrow(all.data)){
+  for (i in seq_len(nrow(all.data))){
 
     temp.data = data.frame(all.data[i,])
 
@@ -159,66 +192,31 @@ buildReference = function(reference.fasta = NULL,
     start = temp.data$start
     end = temp.data$end
 
-    # #Gets type
-    # type.data.e = exon.data[exon.data$name %in% temp.data$name,]
-    # type.data.r = rna.data[rna.data$name %in% temp.data$name,]
-    #
-    # if (nrow(type.data.r) == 0 & nrow(type.data.e) == 0){
-    #   type.data.e = exon.data[grep(temp.data$name, exon.data$name),]
-    #   type.data.r = rna.data[grep(temp.data$name, rna.data$name),]
-    # }#end if
-    #
-    # if (nrow(type.data.r) == 1 & nrow(type.data.e) == 1){stop("found both rna and exon annotation in genbank file.") }
-    # if (nrow(type.data.r) > 1 | nrow(type.data.e) > 1){stop("found both too many annotations in genbank file.") }
-    #
-    # #If it matches rna
-    # if (nrow(type.data.r) == 1){
-    #   #Obtains sequence
-    #   new.seq = Biostrings::subseq(ref.genome, start = start, end = end)
-    #   if (as.character(type.data.r$strand) == "-"){ new.seq = Biostrings::reverseComplement(new.seq) }
-    #   names(new.seq) = paste0(sprintf("%02d", i), "_", type.data.r$product)
-    #   save.seq = append(save.seq, new.seq)
-    # }#end
-    #
-    # #Exon data
-    # if (nrow(type.data.e) == 1){
-    #   #Checks strand for codon start
-    #   if (as.character(type.data.e$strand) == "+"){
-    #    # if (type.data.e$codon_start == 2){ start = start + 1 }
-    #   #  if (type.data.e$codon_start == 3){ start = start + 2 }
-    #   }#end plus
-    #
-    #   if (as.character(type.data.e$strand) == "-"){
-    #     new.seq = Biostrings::reverseComplement(new.seq) }
-    #
-    #    # if (type.data.e$codon_start == 2){ end = end - 1 }
-    #   #  if (type.data.e$codon_start == 3){ end = end - 2 }
-    #   }#end plus
+    #Obtains sequence
+    new.seq = Biostrings::subseq(ref.genome, start = start, end = end)
+    if (as.character(temp.data$strand) == "-"){ new.seq = Biostrings::reverseComplement(new.seq) }
+    names(new.seq) = paste0(sprintf("%03d", i), "_", temp.data$type, "_", temp.data$name)
 
-      #Obtains sequence
-      new.seq = Biostrings::subseq(ref.genome, start = start, end = end)
-      if (as.character(temp.data$strand) == "-"){ new.seq = Biostrings::reverseComplement(new.seq) }
-      names(new.seq) = paste0(sprintf("%02d", i), "_", temp.data$type, "_", temp.data$name)
+    if (nchar(names(new.seq)) >= 50){
+      names(new.seq) = substr(names(new.seq), 1, 50)
+    }
 
-      if (nchar(names(new.seq)) >= 50){
-        names(new.seq) = substr(names(new.seq), 1, 50)
-      }
-
-      save.seq = append(save.seq, new.seq)
+    save.seq = append(save.seq, new.seq)
   }#end i loop
 
   #Writes reference loci
   write.loci = as.list(as.character(save.seq))
   PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
-                       paste0(reference.name, "/refMarkers.fa"), nbchar = 1000000, as.string = T)
+                       paste0(reference.name, "/refMarkers.fa"), nbchar = 1000000, as.string = TRUE)
 
   #WRites reference mito genome
   write.loci = as.list(as.character(ref.genome))
   PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
-                       paste0(reference.name, "/refGenome.fa"), nbchar = 1000000, as.string = T)
+                       paste0(reference.name, "/refGenome.fa"), nbchar = 1000000, as.string = TRUE)
 
-  write.table(all.data, file = paste0(reference.name, "/referenceTable.txt", sep = "\t"), row.names = F, quote = F)
+  write.table(all.data, file = paste0(reference.name, "/referenceTable.txt"), sep = "\t", row.names = FALSE, quote = FALSE)
 
-  print(paste0("Mitochondrial reference for ", reference.name, " created in Mito-Reference"))
+  message("Mitochondrial reference for '", reference.name, "' created successfully.")
 
+  return(invisible(NULL))
 }#end function

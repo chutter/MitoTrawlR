@@ -1,66 +1,50 @@
 #' @title isCircularGenome
 #'
-#' @description Function for removing adaptor sequences from raw Illumina sequence data using the program fastp
+#' @description Tests whether a single assembled contig represents a circular
+#'   mitochondrial genome. Takes the last 25% (min 200 bp) of the contig as a
+#'   tail and the first 25% as a head, then attempts to merge them with CAP3.
+#'   If CAP3 produces a single contig the tail and head overlapped at the
+#'   junction, indicating circularity.
 #'
-#' @param contig path to a folder of raw reads in fastq format.
+#' @param contig a \code{DNAStringSet} containing exactly one contig to test.
+#'   Returns FALSE immediately if more than one contig is supplied or if the
+#'   contig is shorter than 400 bp.
 #'
-#' @param genbank.reference a csv file with a "File" and "Sample" columns, where "File" is the file name and "Sample" is the desired renamed file
+#' @param cap3.path path to the CAP3 executable or its containing directory.
+#'   Defaults to searching the system PATH.
 #'
-#' @param blast.path the new directory to save the adaptor trimmed sequences
-#'
-#' @return a new directory of adaptor trimmed reads and a summary of the trimming in logs/
+#' @return logical; TRUE if the contig appears to be circular, FALSE otherwise.
 #'
 #' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
+#' \dontrun{
+#' library(Biostrings)
+#' contig <- readDNAStringSet("assembled_contig.fa")
+#' isCircularGenome(contig = contig)
+#' }
 #'
 #' @export
 
-### DOESN"T WORK
-
-#Iteratively assembles to reference
 isCircularGenome = function(contig = NULL,
-                            blast.path = "blastn",
-                            cap3.path = "cap3") {
+                            cap3.path = NULL) {
 
-  #contig = contigs
+  if (is.null(contig)) { stop("Please provide a contig as a DNAStringSet.") }
+  if (length(contig) != 1) { return(FALSE) }
 
-  #Finds probes that match to two or more contigs
-  options(stringsAsFactors = FALSE)
+  seq.len = Biostrings::width(contig)
+  if (seq.len < 400) { return(FALSE) }
 
-  if (is.null(contig) == TRUE){ stop("Please provide a genbank file.") }
-  if (length(contig) != 1){ return(FALSE) }
+  overlap.size = max(200L, floor(seq.len * 0.25))
 
-  #Splits in two
-  cut.contig1 = Biostrings::subseq(contig,
-                                   start = 1,
-                                   end = (Biostrings::width(contig)/2) )
-  cut.contig2 = Biostrings::subseq(contig,
-                                   start = (Biostrings::width(contig)/2) + 1,
-                                   end = Biostrings::width(contig) )
+  tail.seq = Biostrings::subseq(contig, start = seq.len - overlap.size + 1L, end = seq.len)
+  head.seq = Biostrings::subseq(contig, start = 1L, end = overlap.size)
 
-  cut.contigs = append(cut.contig1, cut.contig2)
-  names(cut.contigs) = c("seq1", "seq2")
-  cap.contig = MitoCap::runCap3(contigs = cut.contigs,
-                       a = 10,
-                       b = 16,
-                       c = 6,
-                       d = 21,
-                       e = 11,
-                       o = 16,
-                       h = 3,
-                       i = 21,
-                       j = 40,
-                       s = 251,
-                       u = 1,
-                       v = 1,
-                       y = 5,
-                       z = 1)
+  test.seqs = append(tail.seq, head.seq)
+  names(test.seqs) = c("tail", "head")
 
-  if (length(cap.contig) == 1){ return(TRUE) } else { return(FALSE) }
+  cap.result = MitoTrawlR::runCap3(contigs = test.seqs,
+                                   read.R = TRUE,
+                                   cap3.path = cap3.path)
+
+  if (length(cap.result) == 1) { return(TRUE) } else { return(FALSE) }
 
 } #end function

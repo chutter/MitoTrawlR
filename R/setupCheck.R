@@ -1,48 +1,63 @@
 #' @title setupCheck
 #'
-#' @description Function for removing contamination from other organisms from adaptor trimmed Illumina sequence data using BWA
+#' @description Checks whether all external programs required by MitoTrawlR
+#'   can be found on disk. If \code{anaconda.environment} is provided, all
+#'   tool paths are automatically set to \code{<anaconda.environment>/bin}.
+#'   Individual path overrides can be supplied if tools are installed in
+#'   non-standard locations. Prints a found/not-found message for each tool and
+#'   returns a single logical indicating overall pass/fail.
 #'
-#' @param anaconda.environment path to a folder of adaptor trimmed reads in fastq format.
+#' @param anaconda.environment path to the root of a conda environment (e.g.,
+#'   \code{"/opt/miniconda3/envs/MitoTrawlR"}). When provided all tool paths
+#'   are derived from \code{<anaconda.environment>/bin}.
 #'
-#' @param fastp.path the new directory to save the adaptor trimmed sequences
+#' @param fastp.path path to the directory containing \code{fastp}. Overridden
+#'   by \code{anaconda.environment} when that is non-NULL.
 #'
-#' @param samtools.path directory of genomes contaminants to scan samples
+#' @param samtools.path path to the directory containing \code{samtools}.
 #'
-#' @param spades.path system path to samtools in case it can't be found
+#' @param bwa.path path to the directory containing \code{bwa}.
 #'
-#' @param bbmap.path system path to bwa in case it can't be found
+#' @param spades.path path to the directory containing \code{spades.py}.
 #'
-#' @param blast.path number of computation processing threads
+#' @param bbmap.path path to the directory containing \code{bbmap.sh}.
 #'
-#' @param mafft.path amount of system memory to use
+#' @param blast.path path to the directory containing \code{blastn} and
+#'   \code{makeblastdb}.
 #'
-#' @param iqtree.path TRUE to skip samples already completed
+#' @param mafft.path path to the directory containing \code{mafft}.
 #'
-#' @param trimAl.path TRUE to overwrite a folder of samples with output.dir
+#' @param iqtree.path path to the directory containing \code{iqtree3}.
 #'
-#' @param julia.path TRUE to supress screen output
+#' @param trimAl.path path to the directory containing \code{trimal}.
 #'
-#' @param taper.path TRUE to supress screen output
+#' @param julia.path path to the directory containing \code{julia} (currently
+#'   unused; reserved for TAPER support).
 #'
-#' @return a new directory of adaptor trimmed reads and a summary of the trimming in logs/
+#' @param taper.path path to the directory containing the TAPER script
+#'   (currently unused).
+#'
+#' @param tRNAscan.path path to the directory containing \code{tRNAscan-SE}.
+#'
+#' @return logical; TRUE if all required tools were found, FALSE otherwise.
 #'
 #' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
+#' \dontrun{
+#' MitoTrawlR::setupCheck(
+#'   anaconda.environment = "/opt/miniconda3/envs/MitoTrawlR"
+#' )
+#' }
 #'
 #' @export
 
-setupCheck = function(anaconda.environment = "conda/PhyloCap",
+setupCheck = function(anaconda.environment = NULL,
                       fastp.path = NULL,
                       samtools.path = NULL,
                       bwa.path = NULL,
                       spades.path = NULL,
                       bbmap.path = NULL,
                       blast.path = NULL,
+                      cap3.path = NULL,
                       mafft.path = NULL,
                       iqtree.path = NULL,
                       trimAl.path = NULL,
@@ -50,112 +65,56 @@ setupCheck = function(anaconda.environment = "conda/PhyloCap",
                       taper.path = NULL,
                       tRNAscan.path = NULL) {
 
-  #anaconda.environment = "/Users/chutter/conda/PhyloCap"
+  #anaconda.environment = "/Users/chutter/conda/MitoTrawlR"
 
   if (is.null(anaconda.environment) == FALSE) {
-    fastp.path = paste0(anaconda.environment, "/bin")
+    fastp.path    = paste0(anaconda.environment, "/bin")
     samtools.path = paste0(anaconda.environment, "/bin")
-    bwa.path = paste0(anaconda.environment, "/bin")
-    spades.path = paste0(anaconda.environment, "/bin")
-    bbmap.path = paste0(anaconda.environment, "/bin")
-    blast.path = paste0(anaconda.environment, "/bin")
-    mafft.path = paste0(anaconda.environment, "/bin")
-    iqtree.path = paste0(anaconda.environment, "/bin")
-    trimAl.path = paste0(anaconda.environment, "/bin")
-    taper.path = paste0(anaconda.environment, "/bin")
-    julia.path = paste0(anaconda.environment, "/bin")
+    bwa.path      = paste0(anaconda.environment, "/bin")
+    spades.path   = paste0(anaconda.environment, "/bin")
+    bbmap.path    = paste0(anaconda.environment, "/bin")
+    blast.path    = paste0(anaconda.environment, "/bin")
+    cap3.path     = paste0(anaconda.environment, "/bin")
+    mafft.path    = paste0(anaconda.environment, "/bin")
+    iqtree.path   = paste0(anaconda.environment, "/bin")
+    trimAl.path   = paste0(anaconda.environment, "/bin")
+    taper.path    = paste0(anaconda.environment, "/bin")
+    julia.path    = paste0(anaconda.environment, "/bin")
     tRNAscan.path = paste0(anaconda.environment, "/bin")
   }
 
-  #Check paths from above
-  pass = TRUE
-  if (file.exists(paste0(samtools.path, "/samtools")) == TRUE){
-    print("Samtools was found.")
+  check.tool = function(path, tool) {
+    found = file.exists(paste0(path, "/", tool))
+    if (found) {
+      message(tool, " was found.")
+    } else {
+      message(tool, " could not be found.")
+    }
+    found
+  }
+
+  results = c(
+    check.tool(fastp.path,     "fastp"),
+    check.tool(samtools.path,  "samtools"),
+    check.tool(bwa.path,       "bwa"),
+    check.tool(spades.path,    "spades.py"),
+    check.tool(bbmap.path,     "bbmap.sh"),
+    check.tool(blast.path,     "blastn"),
+    check.tool(blast.path,     "makeblastdb"),
+    check.tool(cap3.path,      "cap3"),
+    check.tool(mafft.path,     "mafft"),
+    check.tool(iqtree.path,    "iqtree3"),
+    check.tool(trimAl.path,    "trimal"),
+    check.tool(tRNAscan.path,  "tRNAscan-SE")
+  )
+
+  pass = all(results)
+  if (pass) {
+    message("All tools found. MitoTrawlR environment is ready.")
   } else {
-    pass = FALSE
-    print("Samtools could not be found.")
-  } #end else
-
-  if (file.exists(paste0(bwa.path, "/bwa")) == TRUE){
-    print("BWA was found.")
-  } else {
-    pass = FALSE
-    print("BWA could not be found.")
-  } #end else
-
-  if (file.exists(paste0(spades.path, "/spades.py")) == TRUE){
-    print("Spades was found.")
-  } else {
-    pass = FALSE
-    print("Spades could not be found.")
-  } #end else
-
-  if (file.exists(paste0(bbmap.path, "/bbmap.sh")) == TRUE){
-    print("BBMap was found.")
-  } else {
-    pass = FALSE
-    print("BBMap could not be found.")
-  } #end else
-
-  if (file.exists(paste0(blast.path, "/blastn")) == TRUE){
-    print("blastn was found.")
-  } else {
-    pass = FALSE
-    print("blastn could not be found.")
-  } #end else
-
-  if (file.exists(paste0(blast.path, "/makeblastdb")) == TRUE){
-    print("makeblastdb was found.")
-  } else {
-    pass = FALSE
-    print("makeblastdb could not be found.")
-  } #end else
-
-  if (file.exists(paste0(mafft.path, "/mafft")) == TRUE){
-    print("mafft was found.")
-  } else {
-    pass = FALSE
-    print("mafft could not be found.")
-  } #end else
-
-  if (file.exists(paste0(iqtree.path, "/iqtree2")) == TRUE){
-    print("iqtree was found.")
-  } else {
-    pass = FALSE
-    print("iqtree could not be found.")
-  } #end else
-
-  if (file.exists(paste0(trimAl.path, "/trimal")) == TRUE){
-    print("trimal was found.")
-  } else {
-    pass = FALSE
-    print("trimal could not be found.")
-  } #end else
-
-  if (file.exists(paste0(tRNAscan.path, "/tRNAscan-SE")) == TRUE){
-    print("tRNAscan was found.")
-  } else {
-    pass = FALSE
-    print("tRNAscan could not be found.")
-  } #end else
-
-
-#
-#   if (file.exists(paste0(taper.path, "/taper")) == TRUE){
-#     print("TAPER was found.")
-#   } else {
-#     pass = FALSE
-#     print("TAPER could not be found.")
-#   } #end else
-#
-#   if (file.exists(paste0(julia.path, "/julia")) == TRUE){
-#     print("Julia was found.")
-#   } else {
-#     pass = FALSE
-#     print("Julia could not be found.")
-#   } #end else
+    message("Some tools were not found. Please check the paths above.")
+  }
 
   return(pass)
 
 }#end function
-

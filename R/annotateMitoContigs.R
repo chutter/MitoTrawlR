@@ -1,30 +1,58 @@
 #' @title annotateMitoContigs
 #'
-#' @description Function for running the program spades to assemble short read sequencing data
+#' @description Annotates draft mitochondrial contigs for each sample by BLASTing
+#'   them against the reference marker database, extracting matched gene
+#'   regions, merging fragmented hits with CAP3, and running tRNAscan-SE to
+#'   locate tRNA genes. Per-sample annotation summaries, individual marker
+#'   FASTA files, and contig FASTA files are written to an \code{Annotations/}
+#'   directory.
 #'
-#' @param contig.folder path to a folder of sequence alignments in phylip format.
+#' @param contig.folder path to a folder of draft contig FASTA files (one .fa
+#'   per sample), as produced by \code{mitochondrialCapture}.
 #'
-#' @param genbank.file contigs are added into existing alignment if algorithm is "add"
+#' @param reference.name name of the reference directory created by
+#'   \code{buildReference}, which must contain \code{refMarkers.fa}.
 #'
-#' @param blast.path algorithm to use: "add" add sequences with "add.contigs"; "localpair" for local pair align. All others available
+#' @param blast.path path to the directory containing the BLAST executables
+#'   (\code{blastn}, \code{makeblastdb}). NULL uses the system PATH.
 #'
-#' @param tRNAscan.path algorithm to use: "add" add sequences with "add.contigs"; "localpair" for local pair align. All others available
+#' @param tRNAscan.path path to the directory containing \code{tRNAscan-SE}.
+#'   NULL uses the system PATH.
 #'
-#' @param organism.type algorithm to use: "add" add sequences with "add.contigs"; "localpair" for local pair align. All others available
+#' @param cap3.path path to the directory containing \code{cap3}. NULL uses
+#'   the system PATH.
 #'
-#' @param overwrite TRUE to supress screen output
+#' @param organism.type tRNAscan-SE organism model: one of \code{"mammal"},
+#'   \code{"vertebrate"}, or \code{"eukaryotic"}.
 #'
-#' @param quiet TRUE to supress screen output
+#' @param threads number of CPU threads to pass to BLAST.
 #'
-#' @return an alignment of provided sequences in DNAStringSet format. Also can save alignment as a file with save.name
+#' @param overwrite logical; if TRUE, existing output directories are removed
+#'   and recreated.
+#'
+#' @param save.gff logical; if TRUE, a GFF3 annotation file is written
+#'   alongside the CSV summary for each sample to
+#'   \code{Annotations/sample-summary/<sample>_annotation.gff3}.
+#'
+#' @param quiet logical; if TRUE, BLAST and tRNAscan-SE screen output is
+#'   suppressed.
+#'
+#' @return Invisibly returns NULL. Writes per-sample annotation CSV files
+#'   (and optionally GFF3 files), marker FASTA files, and contig FASTA files
+#'   to \code{Annotations/}.
 #'
 #' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
+#' \dontrun{
+#' annotateMitoContigs(
+#'   contig.folder  = "draftContigs",
+#'   reference.name = "reference",
+#'   blast.path     = "/path/to/blast/bin",
+#'   tRNAscan.path  = "/path/to/trnascan/bin",
+#'   organism.type  = "vertebrate",
+#'   overwrite      = FALSE,
+#'   quiet          = TRUE
+#' )
+#' }
 #'
 #' @export
 
@@ -33,8 +61,11 @@ annotateMitoContigs = function(contig.folder = NULL,
                                reference.name = "reference",
                                blast.path = NULL,
                                tRNAscan.path = NULL,
+                               cap3.path = NULL,
                                organism.type = c("mammal", "vertebrate", "eukaryotic"),
+                               threads = 1,
                                overwrite = FALSE,
+                               save.gff = FALSE,
                                quiet = TRUE) {
 
   # # # #Debug
@@ -43,6 +74,8 @@ annotateMitoContigs = function(contig.folder = NULL,
   #  overwrite = TRUE
   #  quiet = FALSE
   #  organism.type = "vertebrate"
+
+  organism.type = match.arg(organism.type)
 
   if (is.null(blast.path) == FALSE){
     b.string = unlist(strsplit(blast.path, ""))
@@ -58,37 +91,40 @@ annotateMitoContigs = function(contig.folder = NULL,
     }#end if
   } else { tRNAscan.path = "" }
 
+  if (is.null(cap3.path) == FALSE){
+    b.string = unlist(strsplit(cap3.path, ""))
+    if (b.string[length(b.string)] != "/") {
+      cap3.path = paste0(append(b.string, "/"), collapse = "")
+    }#end if
+  } else { cap3.path = "" }
+
   #Checks for output directories
-  if (dir.exists("Annotations") == FALSE) { dir.create("Annotations") }
-  if (dir.exists("Annotations") == TRUE) {
-    if (overwrite == TRUE){
-      system(paste0("rm -r ", "Annotations"))
-      dir.create("Annotations")
-    } else { stop("overwrite is false and directory exists. Exiting.") }
+  if (dir.exists("Annotations") == FALSE) {
+    dir.create("Annotations")
+  } else if (overwrite == TRUE) {
+    unlink("Annotations", recursive = TRUE)
+    dir.create("Annotations")
+  } else { stop("overwrite is FALSE and Annotations directory exists. Exiting.") }
+
+  if (dir.exists("Annotations/sample-contigs") == FALSE) {
+    dir.create("Annotations/sample-contigs")
+  } else if (overwrite == TRUE) {
+    unlink("Annotations/sample-contigs", recursive = TRUE)
+    dir.create("Annotations/sample-contigs")
   }#end dir exists
 
-  if (dir.exists("Annotations/sample-contigs") == FALSE) { dir.create("Annotations/sample-contigs") }
-  if (dir.exists("Annotations/sample-contigs") == TRUE) {
-    if (overwrite == TRUE){
-      system(paste0("rm -r ", "Annotations/sample-contigs"))
-      dir.create("Annotations/sample-contigs")
-    } else { stop("overwrite is false and directory exists. Exiting.") }
+  if (dir.exists("Annotations/sample-markers") == FALSE) {
+    dir.create("Annotations/sample-markers")
+  } else if (overwrite == TRUE) {
+    unlink("Annotations/sample-markers", recursive = TRUE)
+    dir.create("Annotations/sample-markers")
   }#end dir exists
 
-  if (dir.exists("Annotations/sample-markers") == FALSE) { dir.create("Annotations/sample-markers") }
-  if (dir.exists("Annotations/sample-markers") == TRUE) {
-    if (overwrite == TRUE){
-      system(paste0("rm -r ", "Annotations/sample-markers"))
-      dir.create("Annotations/sample-markers")
-    } else { stop("overwrite is false and directory exists. Exiting.") }
-  }#end dir exists
-
-  if (dir.exists("Annotations/sample-summary") == FALSE) { dir.create("Annotations/sample-summary") }
-  if (dir.exists("Annotations/sample-summary") == TRUE) {
-    if (overwrite == TRUE){
-      system(paste0("rm -r ", "Annotations/sample-summary"))
-      dir.create("Annotations/sample-summary")
-    } else { stop("overwrite is false and directory exists. Exiting.") }
+  if (dir.exists("Annotations/sample-summary") == FALSE) {
+    dir.create("Annotations/sample-summary")
+  } else if (overwrite == TRUE) {
+    unlink("Annotations/sample-summary", recursive = TRUE)
+    dir.create("Annotations/sample-summary")
   }#end dir exists
 
   #Obtains samples
@@ -105,24 +141,29 @@ annotateMitoContigs = function(contig.folder = NULL,
                 " -out ", reference.name, "/ref-blast-db"),
          ignore.stdout = quiet, ignore.stderr = quiet)
 
-  for (i in 1:length(spp.samples)){
+  for (i in seq_along(spp.samples)){
 
     #Load in the data
-    contigs = Biostrings::readDNAStringSet(paste0(contig.folder, "/", spp.samples[i], ".fa"))   # loads up fasta file
+    contigs = Biostrings::readDNAStringSet(paste0(contig.folder, "/", spp.samples[i], ".fa"))
 
     #Matches samples to loci
     system(paste0(blast.path, "blastn -task dc-megablast -db ", reference.name, "/ref-blast-db",
                   " -query ", contig.folder, "/", spp.samples[i], ".fa",
                   " -out ", spp.samples[i], "_match.txt",
                   " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen gaps\" ",
-                  " -num_threads 1"))
+                  " -num_threads ", threads),
+           ignore.stdout = quiet, ignore.stderr = quiet)
 
-    #Need to load in transcriptome for each species and take the matching transcripts to the database
-    match.data = read.table(paste0(spp.samples[i], "_match.txt"), sep = "\t", header = F, stringsAsFactors = FALSE)
+    if (!file.exists(paste0(spp.samples[i], "_match.txt"))){
+      message(spp.samples[i], ": BLAST output not found, skipping.")
+      next
+    }
+
+    match.data = data.table::fread(paste0(spp.samples[i], "_match.txt"), sep = "\t", header = FALSE, stringsAsFactors = FALSE)
     colnames(match.data) = headers
     if (nrow(match.data) == 0){
-      print("No matching mitochondrial genes were found.")
-      system(paste0("rm ", spp.samples[i], "_match.txt"))
+      message(spp.samples[i], ": no matching mitochondrial genes were found.")
+      file.remove(paste0(spp.samples[i], "_match.txt"))
       next
     }#end if
 
@@ -136,35 +177,27 @@ annotateMitoContigs = function(contig.folder = NULL,
     #Gets rid of very poor matches
     filt.data = match.data[match.data$matches > 8,]
     filt.data = filt.data[filt.data$evalue <= 0.05,]
-    filt.data = filt.data[grep("tRNA", filt.data$tName, invert = T),]
+    filt.data = filt.data[grep("tRNA", filt.data$tName, invert = TRUE),]
 
     if (nrow(filt.data) == 0){
-      print("No matching mitochondrial genes were found.")
-      system(paste0("rm ", spp.samples[i], "_match.txt"))
+      message(spp.samples[i], ": no matching mitochondrial genes were found.")
+      file.remove(paste0(spp.samples[i], "_match.txt"))
       next
     }#end if
 
-    #Fixes direction and adds into data
-    filt.data$qDir = as.character("0")
-    #Finds out if they are overlapping
-    for (k in 1:nrow(filt.data)){
-      if (filt.data$tStart[k] > filt.data$tEnd[k]){
-        filt.data$qDir[k]<-"-"
-        new.start<-min(filt.data$tStart[k], filt.data$tEnd[k])
-        new.end<-max(filt.data$tStart[k], filt.data$tEnd[k])
-        filt.data$tStart[k]<-new.start
-        filt.data$tEnd[k]<-new.end
-      } else { filt.data$qDir[k]<-"+" }
-    }#end k loop
+    #Fixes direction and adds into data (vectorized)
+    neg.strand = filt.data$tStart > filt.data$tEnd
+    filt.data$qDir = ifelse(neg.strand, "-", "+")
+    filt.data[neg.strand, c("tStart", "tEnd")] = filt.data[neg.strand, c("tEnd", "tStart")]
 
     #Filters and saves
     loci.names = unique(filt.data$tName)
     good.data = Biostrings::DNAStringSet()
     good.match = c()
-    for (j in 1:length(loci.names)){
+    for (j in seq_along(loci.names)){
       #pulls out data that matches to multiple contigs
       sub.data = filt.data[filt.data$tName %in% loci.names[j],]
-      sub.data = sub.data[order(sub.data$tStart, decreasing = F),]
+      sub.data = sub.data[order(sub.data$tStart, decreasing = FALSE),]
 
       #If there is only 1 match
       if (nrow(sub.data) == 1){
@@ -221,17 +254,18 @@ annotateMitoContigs = function(contig.folder = NULL,
 
       #Fragmented across contigs
       cut.contigs = Biostrings::DNAStringSet()
-      for (k in 1:nrow(sub.data)){
+      for (k in seq_len(nrow(sub.data))){
 
         temp.contig = contigs[names(contigs) %in% sub.data$qName[k]]
         new.contig = Biostrings::subseq(temp.contig, start = sub.data$qStart[k], end = sub.data$qEnd[k])
         cut.contigs = append(cut.contigs, new.contig)
       }
 
-      cap3.contigs = runCap3(cut.contigs,
-                             cap3.path = cap3.path)
+      cap3.contigs = MitoTrawlR::runCap3(contigs = cut.contigs,
+                                         read.R = TRUE,
+                                         cap3.path = cap3.path)
       #Saves if there is one contig
-      if (length(cap3.contigs) == 1 && cap3.contigs != 0){
+      if (length(cap3.contigs) == 1 && length(cap3.contigs) > 0){
         new.contig = cap3.contigs
         names(new.contig) = loci.names[j]
         good.data = append(good.data, new.contig)
@@ -239,12 +273,9 @@ annotateMitoContigs = function(contig.folder = NULL,
         next
       } else {
 
-        sub.data2 = sub.data
-        sub.data = sub.data2
         index = 1
-        for (k in 1:(nrow(sub.data)-1)){
+        for (k in seq_len(nrow(sub.data)-1)){
 
-          if (nrow(sub.data)-1 <= k){ break }
           if (nrow(sub.data) == 1){ break }
 
           #If they are overlapping
@@ -258,14 +289,11 @@ annotateMitoContigs = function(contig.folder = NULL,
             }
 
           }#end if
-          if (nrow(sub.data)-1 == k){ break }
           index = index + 1
         }#end k
 
         paste.contigs = Biostrings::DNAStringSet()
-        for (k in 1:(nrow(sub.data)-1) ){
-
-          if (k >= nrow(sub.data)-1){ next }
+        for (k in seq_len(nrow(sub.data)-1)){
           #If they are overlapping
           if (sub.data$tStart[k+1] <= sub.data$tEnd[k]){
 
@@ -290,7 +318,7 @@ annotateMitoContigs = function(contig.folder = NULL,
               names(paste.contigs) = loci.names[j]
             } else {
               new.contig2 = Biostrings::subseq(temp.contig2, start = sub.data$qStart[k+1], end = sub.data$qEnd[k+1])
-              paste.contigs = Biostrings::DNAStringSet(paste0(as.character(paste.contigs), as.character(new.contig)))
+              paste.contigs = Biostrings::DNAStringSet(paste0(as.character(paste.contigs), as.character(new.contig2)))
               names(paste.contigs) = loci.names[j]
             }#end else paste.contigs
 
@@ -328,7 +356,7 @@ annotateMitoContigs = function(contig.folder = NULL,
 
     }#end j loop
 
-    system(paste0("rm ", spp.samples[i], "_match.txt"))
+    file.remove(paste0(spp.samples[i], "_match.txt"))
 
     # ######## Reposition marker
     # ##############################################
@@ -378,7 +406,7 @@ annotateMitoContigs = function(contig.folder = NULL,
     # #Saves to folder the standard order one already made
     # writeFasta(sequences = save.contig, names = names(save.contig),
     #            paste0(genome.dir, "/final-genomes/", sample.names[i], "_Complete.fa"),
-    #            nbchar = 1000000, as.string = T)
+    #            nbchar = 1000000, as.string = TRUE)
     #
     #
     #
@@ -390,8 +418,8 @@ annotateMitoContigs = function(contig.folder = NULL,
     ### Annotate tRNAs
     rna.data = tRNAscan(contigs = good.data,
                         tRNAscan.path = tRNAscan.path,
-                        organism.type = "vertebrate",
-                        quiet = TRUE)
+                        organism.type = organism.type,
+                        quiet = quiet)
 
     if (is.null(rna.data) == FALSE){ if (nrow(rna.data) == 0){ rna.data = NULL }}
 
@@ -403,7 +431,7 @@ annotateMitoContigs = function(contig.folder = NULL,
       # }
 
       rna.contigs = Biostrings::DNAStringSet()
-      for (j in 1:nrow(rna.data)){
+      for (j in seq_len(nrow(rna.data))){
 
         new.contig = Biostrings::subseq(good.data[names(good.data) == rna.data$contig[j]],
                                          start = rna.data$start[j],
@@ -528,27 +556,51 @@ annotateMitoContigs = function(contig.folder = NULL,
     final.sample = rbind(add.rna, add.cds)
     final.sample = final.sample[order(final.sample$contig, final.sample$start),]
 
-    ### Writes the summary
-    write.csv(final.sample, file = paste0("Annotations/sample-summary/", spp.samples[i], "_sample-summary.csv"))
+    ### Writes the CSV summary
+    write.csv(final.sample, file = paste0("Annotations/sample-summary/", spp.samples[i], "_sample-summary.csv"),
+              row.names = FALSE)
 
-    #Writes the full mitochondrial genome file
+    ### Optionally writes GFF3 annotation
+    if (save.gff == TRUE) {
+      gff.rows = data.frame(
+        seqname    = final.sample$contig,
+        source     = "MitoTrawlR",
+        feature    = ifelse(grepl("^tRNA",          final.sample$name), "tRNA",
+                     ifelse(grepl("rRNA|12S|16S",   final.sample$name, ignore.case = TRUE), "rRNA",
+                     ifelse(grepl("D.loop|D_loop",  final.sample$name, ignore.case = TRUE), "D_loop",
+                            "CDS"))),
+        start      = final.sample$start,
+        end        = final.sample$end,
+        score      = ".",
+        strand     = final.sample$direction,
+        frame      = ifelse(grepl("^tRNA|rRNA|12S|16S|D.loop", final.sample$name, ignore.case = TRUE), ".", "0"),
+        attributes = paste0("ID=", final.sample$name, ";Name=", final.sample$name),
+        stringsAsFactors = FALSE
+      )
+      gff.file = paste0("Annotations/sample-summary/", spp.samples[i], "_annotation.gff3")
+      writeLines("##gff-version 3", gff.file)
+      write.table(gff.rows, file = gff.file, sep = "\t", quote = FALSE,
+                  row.names = FALSE, col.names = FALSE, append = TRUE)
+    }
+
+    #Writes per-marker extracted sequences
     names(good.data) = paste0(spp.samples[i], "_|_", names(good.data))
     good.data = good.data[order(names(good.data))]
     write.loci = as.list(as.character(good.data))
     PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
-               paste0("Annotations/sample-markers/", spp.samples[i], "_sampleMarkers.fa"), nbchar = 1000000, as.string = T)
+               paste0("Annotations/sample-markers/", spp.samples[i], "_sampleMarkers.fa"), nbchar = 1000000, as.string = TRUE)
 
-    #Writes the full mitochondrial genome file
-    #good.contigs = contigs[names(contigs) %in% unique(refine.match$qName)]
-    #names(good.contigs) = paste0(names(good.contigs))
-    write.loci = as.list(as.character(good.data))
+    #Writes the original assembly contigs used in annotation
+    good.contigs = contigs[names(contigs) %in% unique(good.match$qName)]
+    write.loci = as.list(as.character(good.contigs))
     PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
-               paste0("Annotations/sample-contigs/", spp.samples[i], "_sampleContigs.fa"), nbchar = 1000000, as.string = T)
+               paste0("Annotations/sample-contigs/", spp.samples[i], "_sampleContigs.fa"), nbchar = 1000000, as.string = TRUE)
 
-    print(paste0("Finished annotation for ", spp.samples[i]))
+    message("Finished annotation for ", spp.samples[i])
 
   }#End i loop
 
-  print("Finished annotation for all samples!")
+  message("Finished annotation for all samples!")
+  return(invisible(NULL))
 
 }#end function

@@ -1,64 +1,61 @@
 #' @title runCap3
 #'
-#' @description Function for running the program spades to assemble short read sequencing data
+#' @description Runs the CAP3 sequence assembly program on a set of contigs to
+#'   merge overlapping sequences into longer consensus contigs. Input can be
+#'   supplied as a \code{DNAStringSet} (written to a temporary file) or as a
+#'   path to an existing FASTA file. When \code{read.R = TRUE}, the assembled
+#'   contigs and singlets are read back into R and returned as a
+#'   \code{DNAStringSet}; otherwise results are optionally written to
+#'   \code{output.name} and temporary files are deleted.
 #'
-#' @param contigs path to a folder of sequence alignments in phylip format.
+#' @param contigs a \code{DNAStringSet} of sequences to assemble, or a
+#'   character string giving the path to an existing FASTA file.
 #'
-#' @param output.name contigs are added into existing alignment if algorithm is "add"
+#' @param output.name optional output file path. When provided, the CAP3
+#'   contigs and singlets are concatenated and saved here.
 #'
-#' @param cap3.path contigs are added into existing alignment if algorithm is "add"
+#' @param cap3.path path to the directory containing \code{cap3}. NULL uses
+#'   the system PATH.
 #'
-#' @param z algorithm to use: "add" add sequences with "add.contigs"; "localpair" for local pair align. All others available
+#' @param read.R logical; if TRUE, read the assembled contigs and singlets back
+#'   into R and return them as a \code{DNAStringSet}.
 #'
-#' @param o TRUE applies the adjust sequence direction function of MAFFT
+#' @param a band expansion size (CAP3 \code{-a}; default 20).
+#' @param b base quality cutoff for differences (CAP3 \code{-b}; default 20).
+#' @param c base quality cutoff for clipping (CAP3 \code{-c}; default 12).
+#' @param d max qscore sum at differences (CAP3 \code{-d}; default 200).
+#' @param e clearance between number of differences (CAP3 \code{-e}; default 30).
+#' @param f max gap length in any overlap (CAP3 \code{-f}; default 20).
+#' @param g gap penalty factor (CAP3 \code{-g}; default 6).
+#' @param h max overhang percent length (CAP3 \code{-h}; default 20).
+#' @param i segment pair score cutoff (CAP3 \code{-i}; default 40).
+#' @param j chain score cutoff (CAP3 \code{-j}; default 80).
+#' @param k end clipping flag (CAP3 \code{-k}; default 1).
+#' @param m match score factor (CAP3 \code{-m}; default 2).
+#' @param n mismatch score factor (CAP3 \code{-n}; default -5).
+#' @param o overlap length cutoff (CAP3 \code{-o}; default 40).
+#' @param p overlap percent identity cutoff (CAP3 \code{-p}; default 90).
+#' @param r reverse orientation value (CAP3 \code{-r}; default 1).
+#' @param s overlap similarity score cutoff (CAP3 \code{-s}; default 900).
+#' @param t max number of word matches (CAP3 \code{-t}; default 300).
+#' @param u min number of constraints for correction (CAP3 \code{-u}; default 3).
+#' @param v min number of constraints for linking (CAP3 \code{-v}; default 2).
+#' @param y clipping range (CAP3 \code{-y}; default 100).
+#' @param z min number of good reads at clip position (CAP3 \code{-z}; default 3).
 #'
-#' @param e if a file name is provided, save.name will be used to save aligment to file as a fasta
-#'
-#' @param s if a file name is provided, save.name will be used to save aligment to file as a fasta
-#'
-#' @param quiet TRUE to supress screen output
-
-#' @param contigs
-#'
-#' @param output.name
-#' @param cap3.path
-#' @param read.R
-#' @param a
-#' @param b
-#' @param c
-#' @param d
-#' @param e
-#' @param f
-#' @param g
-#' @param h
-#' @param i
-#' @param j
-#' @param k
-#' @param m
-#' @param n
-#' @param o
-#' @param p
-#' @param r
-#' @param s
-#' @param t
-#' @param u
-#' @param v
-#' @param y
-#' @param z
-#'
-#' @return an alignment of provided sequences in DNAStringSet format. Also can save alignment as a file with save.name
+#' @return When \code{read.R = TRUE}, a \code{DNAStringSet} of assembled
+#'   contigs and singlets. Otherwise invisibly returns NULL.
 #'
 #' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
+#' \dontrun{
+#' library(Biostrings)
+#' seqs <- readDNAStringSet("fragments.fa")
+#' merged <- runCap3(contigs = seqs, read.R = TRUE)
+#' }
 #'
 #' @export
 
-runCap3 = function(contigs = input.contigs,
+runCap3 = function(contigs = NULL,
                    output.name = NULL,
                    cap3.path = NULL,
                    read.R = FALSE,
@@ -85,77 +82,39 @@ runCap3 = function(contigs = input.contigs,
                    y = 100,
                    z = 3) {
 
-  # If the file of reads is named 'xyz', then
-  # the file of quality values must be named 'xyz.qual',
-  # and the file of constraints named 'xyz.con'.
-  # Options (default values):
-  # -a  N  specify band expansion size N > 10 (20)
-  # -b  N  specify base quality cutoff for differences N > 15 (20)
-  # -c  N  specify base quality cutoff for clipping N > 5 (12)
-  # -d  N  specify max qscore sum at differences N > 20 (200)
-  # -e  N  specify clearance between no. of diff N > 10 (30)
-  # -f  N  specify max gap length in any overlap N > 1 (20)
-  # -g  N  specify gap penalty factor N > 0 (6)
-  # -h  N  specify max overhang percent length N > 2 (20)
-  # -i  N  specify segment pair score cutoff N > 20 (40)
-  # -j  N  specify chain score cutoff N > 30 (80)
-  # -k  N  specify end clipping flag N >= 0 (1)
-  # -m  N  specify match score factor N > 0 (2)
-  # -n  N  specify mismatch score factor N < 0 (-5)
-  # -o  N  specify overlap length cutoff > 15 (40)
-  # -p  N  specify overlap percent identity cutoff N > 65 (90)
-  # -r  N  specify reverse orientation value N >= 0 (1)
-  # -s  N  specify overlap similarity score cutoff N > 250 (900)
-  # -t  N  specify max number of word matches N > 30 (300)
-  # -u  N  specify min number of constraints for correction N > 0 (3)
-  # -v  N  specify min number of constraints for linking N > 0 (2)
-  # -w  N  specify file name for clipping information (none)
-  # -x  N  specify prefix string for output file names (cap)
-  # -y  N  specify clipping range N > 5 (100)
-  # -z  N  specify min no. of good reads at clip pos N > 0 (3)
-
-  #Writes contigs for cap3
- # contigs = spades.contigs
-#  cap3.path = "cap3"
- # z = 3
-#  o = 40
- # e = 30
-#  s = 900
-#
-  if (is.null(cap3.path) == FALSE){
+  if (!is.null(cap3.path)){
     b.string = unlist(strsplit(cap3.path, ""))
     if (b.string[length(b.string)] != "/") {
       cap3.path = paste0(append(b.string, "/"), collapse = "")
-    }#end if
+    }
   } else { cap3.path = "" }
 
-  if (class(contigs) != "character") {
+  if (!is.character(contigs)) {
     write.loci = as.list(as.character(contigs))
     PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
-                         "input_contigs.fa", nbchar = 1000000, as.string = T)
+                         "input_contigs.fa", nbchar = 1000000, as.string = TRUE)
     contig.file = "input_contigs.fa"
   } else { contig.file = contigs }
 
-  #runs cap3 to merge similar contigs (pull only clustered contigs out?)
   system(paste0(cap3.path, "cap3 ", contig.file, " -z ", z, " -o ", o, " -e ", e, " -s ", s, " > ",
                 "input_contigs.fa.cap.txt"))
 
-  #Get cap3 files and deletes
-  if (is.null(output.name) == F){
+  if (!is.null(output.name)){
     system(paste0("cat ", contig.file, ".cap.contigs ",
                   contig.file, ".cap.singlets > ", output.name))
-    system(paste0("rm ", contig.file, "*"))
-  }#end output
+    file.remove(Sys.glob(paste0(contig.file, "*")))
+    return(invisible(NULL))
+  }
 
-  #Reads in results files
-  if (read.R == TRUE){
-    temp.assembled = Biostrings::readDNAStringSet(paste0("input_contigs.fa.cap.contigs"))
-    temp.singlets = Biostrings::readDNAStringSet(paste0("input_contigs.fa.cap.singlets"))
+  if (read.R){
+    temp.assembled = Biostrings::readDNAStringSet("input_contigs.fa.cap.contigs")
+    temp.singlets  = Biostrings::readDNAStringSet("input_contigs.fa.cap.singlets")
     final.save = append(temp.assembled, temp.singlets)
-    system(paste("rm input_contigs.fa*"))
+    file.remove(Sys.glob("input_contigs.fa*"))
     return(final.save)
-  }#end if
+  }
 
-  system(paste0("rm ", contig.file, "*"))
+  file.remove(Sys.glob(paste0(contig.file, "*")))
+  return(invisible(NULL))
 
 }#end function

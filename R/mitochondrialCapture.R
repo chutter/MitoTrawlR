@@ -1,50 +1,76 @@
 #' @title mitochondrialCapture
 #'
-#' @description Function for removing adaptor sequences from raw Illumina sequence data using the program fastp
+#' @description Main entry point for iteratively assembling mitochondrial
+#'   genomes from short reads for a batch of samples. For each sample, reads
+#'   are matched to the reference genome by \code{iterativeAssemble} and the
+#'   resulting draft contigs are saved as FASTA files in \code{output.dir}.
+#'   Samples that have already been processed (i.e., whose output FASTA exists)
+#'   are skipped when \code{overwrite = FALSE}.
 #'
-#' @param input.reads path to a folder of raw reads in fastq format.
+#' @param input.reads path to a folder of processed reads; each sample should
+#'   reside in its own subdirectory containing fastq/fq files.
 #'
-#' @param genbank.file a csv file with a "File" and "Sample" columns, where "File" is the file name and "Sample" is the desired renamed file
+#' @param reference.name name of the reference directory created by
+#'   \code{buildReference}, which must contain \code{refGenome.fa}.
 #'
-#' @param output.dir the new directory to save the adaptor trimmed sequences
+#' @param output.dir path to the output directory where per-sample draft contig
+#'   FASTA files (\code{<sample>.fa}) will be written.
 #'
-#' @param mapper "Sample" to run on a single sample or "Directory" to run on a directory of samples
+#' @param min.iterations minimum number of iterative assembly rounds per
+#'   sample.
 #'
-#' @param min.iterations system path to fastp in case it can't be found
+#' @param max.iterations maximum number of iterative assembly rounds per
+#'   sample.
 #'
-#' @param max.iterations system path to fastp in case it can't be found
+#' @param min.length minimum total assembled length (bp) below which off-target
+#'   filtering is not applied.
 #'
-#' @param min.length system path to fastp in case it can't be found
+#' @param max.length maximum total assembled length (bp); triggers stricter
+#'   read-identity filtering when exceeded.
 #'
-#' @param max.length system path to fastp in case it can't be found
+#' @param min.ref.id minimum fractional read-to-reference identity (0--1) for
+#'   BBMap read recruitment.
 #'
-#' @param min.ref.id system path to fastp in case it can't be found
+#' @param spades.path path to the directory containing \code{spades.py}. NULL
+#'   uses the system PATH.
 #'
-#' @param spades.path system path to fastp in case it can't be found
+#' @param bbmap.path path to the directory containing \code{bbmap.sh}. NULL
+#'   uses the system PATH.
 #'
-#' @param bbmap.path system path to fastp in case it can't be found
+#' @param cap3.path path to the directory containing \code{cap3}. NULL uses
+#'   the system PATH.
 #'
-#' @param cap3.path system path to fastp in case it can't be found
+#' @param blast.path path to the directory containing the BLAST executables.
+#'   NULL uses the system PATH.
 #'
-#' @param threads number of computation processing threads
+#' @param memory amount of RAM (GB) to allocate to BBMap and SPAdes.
 #'
-#' @param memory amount of system memory to use
+#' @param threads number of CPU threads to use.
 #'
-#' @param resume TRUE to skip samples already completed
+#' @param overwrite logical; if TRUE, already-processed samples are
+#'   reprocessed and the output directory is recreated.
 #'
-#' @param overwrite TRUE to overwrite a folder of samples with output.dir
+#' @param quiet logical; if TRUE, external tool screen output is suppressed.
 #'
-#' @param quiet TRUE to supress screen output
-#'
-#' @return a new directory of adaptor trimmed reads and a summary of the trimming in logs/
+#' @return Invisibly returns NULL. Writes one FASTA file per sample to
+#'   \code{output.dir}.
 #'
 #' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
+#' \dontrun{
+#' mitochondrialCapture(
+#'   input.reads    = "processed-reads/adaptor-removed-reads",
+#'   reference.name = "reference",
+#'   output.dir     = "draftContigs",
+#'   min.iterations = 5,
+#'   max.iterations = 20,
+#'   min.length     = 15000,
+#'   max.length     = 30000,
+#'   min.ref.id     = 0.75,
+#'   memory         = 8,
+#'   threads        = 4,
+#'   overwrite      = FALSE
+#' )
+#' }
 #'
 #' @export
 
@@ -134,24 +160,27 @@ mitochondrialCapture = function(input.reads = NULL,
   #Quick checks
   if (is.null(input.reads) == TRUE){ stop("Please provide input reads.") }
   if (is.null(output.dir) == TRUE){ stop("Please provide an output directory.") }
+  if (file.exists(input.reads) == FALSE){ stop("Input reads directory not found.") }
 
   if (dir.exists(reference.name) == FALSE){
     stop("Please provide a reference directory name made from the function buildReference.")
   }
 
-  #Sets directory and reads in  if (is.null(output.dir) == TRUE){ stop("Please provide an output directory.") }
-  if (dir.exists(output.dir) == F){ dir.create(output.dir) } else {
+  #Sets directory and reads
+  if (dir.exists(output.dir) == FALSE) {
+    dir.create(output.dir)
+  } else {
     if (overwrite == TRUE){
-      system(paste0("rm -r ", output.dir))
+      unlink(output.dir, recursive = TRUE)
       dir.create(output.dir)
     }
   }#end else
 
   #Creates output directory
-  if (dir.exists("logs") == F){ dir.create("logs") }
+  if (dir.exists("logs/sample_logs") == FALSE){ dir.create("logs/sample_logs", recursive = TRUE) }
 
   #Sets up the reads
-  files = list.files(path = input.reads, full.names = T, recursive = T)
+  files = list.files(path = input.reads, full.names = TRUE, recursive = TRUE)
   reads = files[grep(pattern = "fastq|fq|clustS", x = files)]
 
   samples = gsub(paste0(input.reads, "/"), "", reads)
@@ -176,9 +205,23 @@ mitochondrialCapture = function(input.reads = NULL,
   if (length(samples) == 0){ stop("No samples to run or incorrect directory.") }
 
   #Header data for features and whatnot
-  for (i in 1:length(samples)){
+  for (i in seq_along(samples)){
 
-    sample.reads = reads[grep(samples[i], reads)]
+    sample.reads = reads[grep(paste0(samples[i], "_"), reads)]
+    if (length(sample.reads) == 0){ sample.reads = reads[grep(samples[i], reads)] }
+
+    if (length(sample.reads) == 0){
+      warning(samples[i], " does not have any reads present. Skipping.")
+      next
+    }
+
+    #Skip samples with empty or near-empty read files
+    file.sizes = file.info(sample.reads)$size
+    if (any(is.na(file.sizes)) || max(file.sizes, na.rm = TRUE) < 1000) {
+      warning(samples[i], " read files are empty or near-empty (max file size: ",
+              max(file.sizes, na.rm = TRUE), " bytes). Skipping.")
+      next
+    }
 
     #Concatenate together
     read1.reads = sample.reads[grep("_1.f.*|-1.f.*|_R1_.*|-R1_.*|_R1-.*|-R1-.*|READ1.*|_R1.fast.*|-R1.fast.*", sample.reads)]
@@ -186,9 +229,18 @@ mitochondrialCapture = function(input.reads = NULL,
     read3.reads = sample.reads[grep("_3.f.*|-3.f.*|_R3_.*|-R3_.*|_R3-.*|-R3-.*|READ3.*|_R3.fast.*|-R3.fast.*|_READ3.fast.*|-READ3.fast.*|_singleton.*|-singleton.*|READ-singleton.*|READ_singleton.*|_READ-singleton.*|-READ_singleton.*|-READ-singleton.*|_READ_singleton.*", sample.reads)]
 
     #Checks for reads
-    if (length(read1.reads) == 0){ stop("error: read pairs could not be identified.")}
-    if (length(read2.reads) == 0 && length(sample.reads) >= 2){ stop("error: read pairs could not be identified.")}
-    if (length(read3.reads) == 0 && length(sample.reads) >= 3){ stop("error: merged set of reads could not be identified.")}
+    if (length(read1.reads) == 0){
+      warning(samples[i], ": read pairs could not be identified. Skipping.")
+      next
+    }
+    if (length(read2.reads) == 0 && length(sample.reads) >= 2){
+      warning(samples[i], ": read pairs could not be identified. Skipping.")
+      next
+    }
+    if (length(read3.reads) == 0 && length(sample.reads) >= 3){
+      warning(samples[i], ": merged/singleton reads could not be identified. Skipping.")
+      next
+    }
 
     #Combines duplicate read sets
     it.sample.reads = c()
@@ -204,10 +256,12 @@ mitochondrialCapture = function(input.reads = NULL,
       it.sample.reads[2] = paste0(input.reads, "/", samples[i], "_ALL_READ2.fastq.gz")
     } else { it.sample.reads[2] = read2.reads }
 
-    if (length(read3.reads) >= 3) {
+    if (length(read3.reads) >= 2) {
       system(paste0("cat ", paste0(read3.reads, collapse = " "), " > ", input.reads,
                     "/", samples[i], "_ALL_READ3.fastq.gz"))
       it.sample.reads[3] = paste0(input.reads, "/", samples[i], "_ALL_READ3.fastq.gz")
+    } else if (length(read3.reads) == 1) {
+      it.sample.reads[3] = read3.reads
     }
 
 
@@ -225,26 +279,30 @@ mitochondrialCapture = function(input.reads = NULL,
                                      bbmap.path = bbmap.path,
                                      blast.path = blast.path,
                                      cap3.path = cap3.path,
+                                     quiet = quiet,
                                      mapper = "bbmap")
 
     if (length(mito.contigs) == 0){
-      print(paste0(samples[i], " failed: no reads matching to reference."))
-      next }
+      message(samples[i], " failed: no reads matching to reference.")
+      next
+    }
 
     #Writes contigs
-    names(mito.contigs) = paste0("seq", rep(1:length(mito.contigs), by = 1))
+    names(mito.contigs) = paste0("seq", seq_along(mito.contigs))
     write.loci = as.list(as.character(mito.contigs))
     PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
-                         paste0(output.dir, "/", samples[i], ".fa"), nbchar = 1000000, as.string = T)
+                         paste0(output.dir, "/", samples[i], ".fa"), nbchar = 1000000, as.string = TRUE)
 
     #Delete combined files
     if (length(sample.reads) > 3) {
-      system(paste0("rm ", input.reads, "/", samples[i], "_ALL_READ*"))
+      file.remove(Sys.glob(paste0(input.reads, "/", samples[i], "_ALL_READ*")))
     }#end delete
 
-    print(paste0(samples[i], " completed!"))
+    message(samples[i], " completed!")
 
   }#end sample loop
+
+  return(invisible(NULL))
 
 }#end function
 

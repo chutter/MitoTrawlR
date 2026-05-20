@@ -1,50 +1,76 @@
 #' @title iterativeAssemble
 #'
-#' @description Function for removing adaptor sequences from raw Illumina sequence data using the program fastp
+#' @description Iteratively assembles a target genomic region (e.g., the
+#'   mitochondrial genome) from short reads by repeatedly mapping reads to the
+#'   current assembly seed with BBMap and reassembling with SPAdes. Off-target
+#'   contigs are removed with BLAST after each iteration. The loop terminates
+#'   when the assembly length stops changing, the maximum number of iterations
+#'   is reached, or the assembled length exceeds \code{max.length}.
 #'
-#' @param input.reads path to a folder of raw reads in fastq format.
+#' @param input.reads character vector of paths to read files. One element for
+#'   single-end, two for paired-end, or three for paired-end plus merged/singleton
+#'   reads.
 #'
-#' @param reference a csv file with a "File" and "Sample" columns, where "File" is the file name and "Sample" is the desired renamed file
+#' @param reference path to a FASTA file used as the initial mapping seed.
 #'
-#' @param output.name the new directory to save the adaptor trimmed sequences
+#' @param mapper read mapper to use; currently only \code{"bbmap"} is
+#'   supported.
 #'
-#' @param mapper "Sample" to run on a single sample or "Directory" to run on a directory of samples
+#' @param min.iterations minimum number of assembly iterations to complete
+#'   before checking for convergence.
 #'
-#' @param min.iterations system path to fastp in case it can't be found
+#' @param max.iterations maximum number of assembly iterations allowed before
+#'   the loop is forced to stop.
 #'
-#' @param max.iterations system path to fastp in case it can't be found
+#' @param min.length minimum total assembled length (bp) below which contigs
+#'   are not filtered for off-target content.
 #'
-#' @param min.length system path to fastp in case it can't be found
+#' @param max.length maximum total assembled length (bp); when exceeded, the
+#'   mapping identity threshold is raised and small contigs are discarded.
 #'
-#' @param max.length system path to fastp in case it can't be found
+#' @param target.length optional target length (bp); when the total assembled
+#'   length reaches or exceeds this value the loop exits early. Useful for
+#'   barcode scanning where you only need to cover a short reference region.
+#'   \code{NULL} (default) disables early exit.
 #'
-#' @param min.ref.id system path to fastp in case it can't be found
+#' @param min.ref.id minimum fractional read identity (0--1) required by BBMap
+#'   for a read to be retained.
 #'
-#' @param spades.path system path to fastp in case it can't be found
+#' @param memory amount of RAM (GB) to allocate to BBMap and SPAdes.
 #'
-#' @param bbmap.path system path to fastp in case it can't be found
+#' @param threads number of CPU threads to use.
 #'
-#' @param cap3.path system path to fastp in case it can't be found
+#' @param spades.path path to the directory containing \code{spades.py}. NULL
+#'   uses the system PATH.
 #'
-#' @param threads number of computation processing threads
+#' @param bbmap.path path to the directory containing \code{bbmap.sh}. NULL
+#'   uses the system PATH.
 #'
-#' @param mem amount of system memory to use
+#' @param cap3.path path to the directory containing \code{cap3}. NULL uses
+#'   the system PATH.
 #'
-#' @param resume TRUE to skip samples already completed
+#' @param blast.path path to the directory containing the BLAST executables.
+#'   NULL uses the system PATH.
 #'
-#' @param overwrite TRUE to overwrite a folder of samples with output.dir
+#' @param quiet logical; if TRUE, external tool screen output is suppressed.
 #'
-#' @param quiet TRUE to supress screen output
-#'
-#' @return a new directory of adaptor trimmed reads and a summary of the trimming in logs/
+#' @return A \code{DNAStringSet} of assembled contigs, or an empty
+#'   \code{DNAStringSet} if assembly failed.
 #'
 #' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
+#' \dontrun{
+#' contigs <- iterativeAssemble(
+#'   input.reads    = c("sample_R1.fastq.gz", "sample_R2.fastq.gz"),
+#'   reference      = "reference/refGenome.fa",
+#'   min.iterations = 5,
+#'   max.iterations = 20,
+#'   min.length     = 15000,
+#'   max.length     = 30000,
+#'   min.ref.id     = 0.75,
+#'   memory         = 8,
+#'   threads        = 4
+#' )
+#' }
 #'
 #' @export
 
@@ -56,6 +82,7 @@ iterativeAssemble = function(input.reads = NULL,
                              max.iterations = 20,
                              min.length = 16000,
                              max.length = 30000,
+                             target.length = NULL,
                              min.ref.id = 0.75,
                              memory = 1,
                              threads = 1,
@@ -63,8 +90,6 @@ iterativeAssemble = function(input.reads = NULL,
                              bbmap.path = NULL,
                              cap3.path = NULL,
                              blast.path = NULL,
-                             resume = TRUE,
-                             overwrite = FALSE,
                              quiet = TRUE) {
 
   # #Debug
@@ -119,8 +144,8 @@ iterativeAssemble = function(input.reads = NULL,
   if (is.null(reference) == TRUE){ stop("Please provide a reference.") }
 
   #Writes reference to file if its not a file path
-  if(file.exists("iterative_temp") == TRUE){ system(paste0("rm -r iterative_temp")) }
-  if(file.exists("spades") == TRUE){ system(paste0("rm -r spades")) }
+  if (file.exists("iterative_temp") == TRUE){ unlink("iterative_temp", recursive = TRUE) }
+  if (file.exists("spades") == TRUE){ unlink("spades", recursive = TRUE) }
   dir.create("iterative_temp")
   system(paste0("cp ", reference, " iterative_temp/current_seed.fa"))
 
@@ -130,23 +155,23 @@ iterativeAssemble = function(input.reads = NULL,
   new.contigs = 0
   counter = 0
   repeat.counter = 0
-  seeding = T
+  seeding = TRUE
 
   #Makes empty files
-  system("touch iterative_temp/read1.fq")
+  file.create("iterative_temp/read1.fq")
 
   if (length(input.reads) >= 2){
-    system("touch iterative_temp/read2.fq")
+    file.create("iterative_temp/read2.fq")
   }#end paired end
 
   if (length(input.reads) >= 3){
-    system("touch iterative_temp/read3.fq")
+    file.create("iterative_temp/read3.fq")
   }#end paired end
 
   #############################
   ## While loop start
   #############################
-  while (seeding == T){
+  while (seeding == TRUE){
 
     #Copy new reference to do recursively
     counter = counter + 1
@@ -154,7 +179,7 @@ iterativeAssemble = function(input.reads = NULL,
     prev.contigs = new.contigs
     #combined.contigs = DNAStringSet()
 
-    print(paste0("------------   iteration ", counter, " begin ----------------------"))
+    message("------------   iteration ", counter, " begin ----------------------")
 
     #Subsets the reads to the lane
     set.reads = input.reads
@@ -173,9 +198,9 @@ iterativeAssemble = function(input.reads = NULL,
                ignore.stderr = quiet, ignore.stdout = quiet)
         #Saves and combines
         system(paste0("cat iterative_temp/read1.fq iterative_temp/temp_read1.fq >> iterative_temp/new_read1.fq"))
-        system(paste0("rm iterative_temp/read1.fq"))
+        file.remove("iterative_temp/read1.fq")
         system(paste0("mv iterative_temp/new_read1.fq iterative_temp/read1.fq"))
-        system(paste0("rm iterative_temp/temp_read1.fq"))
+        file.remove("iterative_temp/temp_read1.fq")
         temp.read.path = paste0("iterative_temp/read1.fq")
       }#end 1 read
 
@@ -189,10 +214,10 @@ iterativeAssemble = function(input.reads = NULL,
         #Saves and combines
         system(paste0("cat iterative_temp/read1.fq iterative_temp/temp_read1.fq >> iterative_temp/new_read1.fq"))
         system(paste0("cat iterative_temp/read2.fq iterative_temp/temp_read2.fq >> iterative_temp/new_read2.fq"))
-        system(paste0("rm iterative_temp/read1.fq iterative_temp/read2.fq"))
+        file.remove(c("iterative_temp/read1.fq", "iterative_temp/read2.fq"))
         system(paste0("mv iterative_temp/new_read1.fq iterative_temp/read1.fq"))
         system(paste0("mv iterative_temp/new_read2.fq iterative_temp/read2.fq"))
-        system(paste0("rm iterative_temp/temp_read1.fq iterative_temp/temp_read2.fq"))
+        file.remove(c("iterative_temp/temp_read1.fq", "iterative_temp/temp_read2.fq"))
         temp.read.path = c(paste0("iterative_temp/read1.fq"),
                            paste0("iterative_temp/read2.fq") )
 
@@ -206,9 +231,9 @@ iterativeAssemble = function(input.reads = NULL,
                ignore.stderr = quiet, ignore.stdout = quiet)
         #Saves and combines
         system(paste0("cat iterative_temp/read3.fq iterative_temp/temp_read3.fq >> iterative_temp/new_read3.fq"))
-        system(paste0("rm iterative_temp/read3.fq"))
+        file.remove("iterative_temp/read3.fq")
         system(paste0("mv iterative_temp/new_read3.fq iterative_temp/read3.fq"))
-        system(paste0("rm iterative_temp/temp_read3.fq"))
+        file.remove("iterative_temp/temp_read3.fq")
         temp.read.path = c(paste0("iterative_temp/read1.fq"),
                            paste0("iterative_temp/read2.fq"),
                            paste0("iterative_temp/read3.fq"))
@@ -222,15 +247,15 @@ iterativeAssemble = function(input.reads = NULL,
 
     }#end bbmap if
 
-    system("rm -r ref")
+    unlink("ref", recursive = TRUE)
 
     #Runs spades
     spades.contigs = runSpades(read.paths = temp.read.path,
                                full.path.spades = spades.path,
                                mismatch.corrector = FALSE,
-                               save.file = F,
-                               quiet =T,
-                               read.contigs = T,
+                               save.file = FALSE,
+                               quiet = TRUE,
+                               read.contigs = TRUE,
                                threads = threads,
                                memory = memory)
 
@@ -240,9 +265,7 @@ iterativeAssemble = function(input.reads = NULL,
     if (length(spades.contigs) == 0){
       #Loops through each set of reads
       save.seqs = Biostrings::DNAStringSet()
-      for (x in 1:length(temp.read.path)){
-        #Check size
-        temp.count = scan(file = temp.read.path[x], what = "character")
+      for (x in seq_along(temp.read.path)){
         if (file.info(temp.read.path[x])$size == 0){ next }
         #Sa es if there are reads
         temp.fastq = Biostrings::readDNAStringSet(temp.read.path[x], format = "fastq")
@@ -254,17 +277,17 @@ iterativeAssemble = function(input.reads = NULL,
       #Saves them if there are any changes
       if (length(save.seqs) != 0){
         save.seqs = append(save.seqs, combined.contigs)
-        names(save.seqs) = paste0("seq", rep(1:length(save.seqs), by = 1))
+        names(save.seqs) = paste0("seq", seq_along(save.seqs))
         combined.contigs = MitoTrawlR::runCap3(contigs = save.seqs,
                                             read.R = TRUE,
                                             cap3.path = cap3.path)
       } else { combined.contigs = Biostrings::DNAStringSet() }
-    } else { combined.contigs = append(combined.contigs, spades.contigs)}
+    }
 
     #Checks for failure of everything
     if (length(combined.contigs) == 0) {
-      seeding = F
-      print(paste0("mitogenome failed, reads could not be assembled."))
+      seeding = FALSE
+      message("mitogenome failed, reads could not be assembled.")
       next
     }
 
@@ -282,8 +305,8 @@ iterativeAssemble = function(input.reads = NULL,
                                          contigs = combined.contigs,
                                          blast.path = blast.path,
                                          threads = threads,
-                                         quiet = T,
-                                         remove.bad = F)
+                                         quiet = TRUE,
+                                         remove.bad = FALSE)
     }#end if
 
     #Removes even more off target bad matches
@@ -292,20 +315,21 @@ iterativeAssemble = function(input.reads = NULL,
                                          contigs = combined.contigs,
                                          blast.path = blast.path,
                                          threads = threads,
-                                         quiet = T,
-                                         remove.bad = T)
+                                         quiet = TRUE,
+                                         remove.bad = TRUE)
     }#end if
 
-    # if (max(Biostrings::width(combined.contigs)) >= min.length){
-    #   circ.contigs = combined.contigs[Biostrings::width(combined.contigs) >= min.length]
-    #   circ.genome = isCircularGenome(circ.contigs)
-    #
-    #   if (circ.genome == TRUE) {
-    #     print(paste("Circular genome assembled!"))
-    #     seeding = F
-    #     combined.contigs = circ.contigs
-    #   }
-    # }#end if
+    # Check for circularity: only when we have a single contig >= min.length
+    # and have run at least min.iterations rounds. A circular genome cannot
+    # grow further, so there is no reason to keep assembling.
+    if (counter >= min.iterations && length(combined.contigs) == 1 &&
+        Biostrings::width(combined.contigs) >= min.length) {
+      if (MitoTrawlR::isCircularGenome(contig = combined.contigs,
+                                       cap3.path = cap3.path)) {
+        message("Circular genome detected! Stopping assembly.")
+        seeding = FALSE
+      }
+    }
 
     #Check size
     new.len = sum(Biostrings::width(combined.contigs))
@@ -319,47 +343,55 @@ iterativeAssemble = function(input.reads = NULL,
       new.len = sum(Biostrings::width(combined.contigs))
       new.contigs = length(combined.contigs)
 
-      min.ref.id = "0.98"
+      min.ref.id = 0.98
       #makes sure this doesn't go on forever and ever
-      repeat.counter = repeat.counter+1
+      repeat.counter = repeat.counter + 1
       if (repeat.counter >= 5){
-        print(paste("repeat counter hit 5"))
-        seeding = F
+        message("repeat counter hit 5, stopping.")
+        seeding = FALSE
       }#end if
-    } else { min.ref.id = "0.95" }
+    }
 
     #Prints completion info
-    print(paste0("old length: ", prev.len, " bp; ", prev.contigs, " contigs."))
-    print(paste0("new length: ", new.len, " bp; ", new.contigs, " contigs."))
-    print(paste0("iteration ", counter, " complete!"))
-    print(paste0("-------------------------------------------------------"))
+    message("old length: ", prev.len, " bp; ", prev.contigs, " contigs.")
+    message("new length: ", new.len, " bp; ", new.contigs, " contigs.")
+    message("iteration ", counter, " complete!")
+    message("-------------------------------------------------------")
+
+    ###################################################
+    #When target length is reached (e.g. barcode scanning)
+    ###################################################
+    if (!is.null(target.length) && new.len >= target.length) {
+      seeding = FALSE
+      message("Target length (", target.length, " bp) reached after ", counter, " iterations.")
+    }
 
     ###################################################
     #When the counter gets too high
     ###################################################
     if (counter >= max.iterations){
-      seeding = F
-      print(paste0("mitogenome complete after ", counter, " iterations!"))
+      seeding = FALSE
+      message("mitogenome complete after ", counter, " iterations!")
     } #end if
 
     ###################################################
     #When there is no change and min iterations is hit
     ###################################################
     if (new.len == prev.len & counter >= min.iterations){
-      seeding = F
-      print(paste0("mitogenome complete after ", counter, " iterations!"))
+      seeding = FALSE
+      message("mitogenome complete after ", counter, " iterations!")
     } #end if
 
     #If there is nothing matching at this point
     if (length(combined.contigs) == 0){
-      seeding = F
-      print(paste0("Could not find reads matching reference."))
+      seeding = FALSE
+      message("Could not find reads matching reference.")
     } else {
       #Writes contigs for next seed
-      names(combined.contigs) = paste0("seq", rep(1:length(combined.contigs), by = 1))
+      names(combined.contigs) = paste0("seq", seq_along(combined.contigs))
       write.loci = as.list(as.character(combined.contigs))
       PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
-                           "iterative_temp/current_seed.fa", nbchar = 1000000, as.string = T)
+                           "iterative_temp/current_seed.fa", nbchar = 1000000, as.string = TRUE)
     }#end else
 
   }#end while
@@ -394,15 +426,12 @@ iterativeAssemble = function(input.reads = NULL,
   #   }#end save.seqs if
   # }#end if
 
-  #If there is nothing matching at this point
-  if (length(combined.contigs) == 0){
-    system("rm -r iterative_temp")
-    print(paste0("Could not find reads matching reference."))
-    return(combined.contigs)
-  } else {
+  unlink("iterative_temp", recursive = TRUE)
 
-    system("rm -r iterative_temp")
-    return(combined.contigs)
-  }#end else
+  if (length(combined.contigs) == 0){
+    message("Could not find reads matching reference.")
+  }
+
+  return(combined.contigs)
   ##########################
 }#end function

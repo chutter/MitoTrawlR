@@ -1,38 +1,60 @@
 #' @title runSpades
 #'
-#' @description Function for running the program spades to assemble short read sequencing data
+#' @description Runs SPAdes de-novo assembler on one, two, or three sets of
+#'   reads. If assembly fails (no \code{contigs.fasta} output) the k-mer list
+#'   is shortened by one and SPAdes is retried until either the assembly
+#'   succeeds or all k-mer values are exhausted. When \code{read.contigs = TRUE}
+#'   the assembled contigs are read back into R; when \code{save.file = TRUE}
+#'   the contig FASTA is copied to \code{save.name}.
 #'
-#' @param read.paths path to a folder of sequence alignments in phylip format.
+#' @param read.paths character vector of paths to read files. One element for
+#'   single-end reads, two for paired-end, or three for paired-end plus
+#'   merged/singleton reads.
 #'
-#' @param full.path.spades contigs are added into existing alignment if algorithm is "add"
+#' @param full.path.spades path to the directory containing \code{spades.py}.
+#'   NULL uses the system PATH.
 #'
-#' @param mismatch.corrector algorithm to use: "add" add sequences with "add.contigs"; "localpair" for local pair align. All others available
+#' @param mismatch.corrector logical; if TRUE, passes \code{--careful} to
+#'   SPAdes to enable mismatch correction (slower).
 #'
-#' @param read.contigs TRUE applies the adjust sequence direction function of MAFFT
+#' @param kmer.values integer vector of k-mer sizes to attempt, tried in order
+#'   from longest to shortest on failure.
 #'
-#' @param save.file if a file name is provided, save.name will be used to save aligment to file as a fasta
+#' @param read.contigs logical; if TRUE, read assembled contigs into R and
+#'   return them.
 #'
-#' @param save.name if a file name is provided, save.name will be used to save aligment to file as a fasta
+#' @param save.file logical; if TRUE, copy the contig FASTA to \code{save.name}.
 #'
-#' @param threads number of computation processing threads
+#' @param save.name output file path (without extension) used when
+#'   \code{save.file = TRUE}.
 #'
-#' @param mem amount of system memory to use
+#' @param threads number of CPU threads to pass to SPAdes.
 #'
-#' @param resume TRUE to skip samples already completed
+#' @param memory amount of RAM (GB) to allocate to SPAdes.
 #'
-#' @param overwrite TRUE to overwrite a folder of samples with output.dir
+#' @param overwrite logical; if TRUE, an existing \code{spades/} output
+#'   directory is deleted before running.
 #'
-#' @param quiet TRUE to supress screen output
-
-#' @return an alignment of provided sequences in DNAStringSet format. Also can save alignment as a file with save.name
+#' @param quiet logical; if TRUE, SPAdes stdout is suppressed.
+#'
+#' @return When \code{read.contigs = TRUE}, a \code{DNAStringSet} of assembled
+#'   contigs (empty if assembly failed). When \code{save.file = TRUE} and
+#'   \code{read.contigs = FALSE}, returns the string
+#'   \code{"Contigs were saved to file."}. Otherwise returns
+#'   \code{"Nothing was saved."}.
 #'
 #' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
+#' \dontrun{
+#' contigs <- runSpades(
+#'   read.paths        = c("sample_R1.fastq.gz", "sample_R2.fastq.gz"),
+#'   full.path.spades  = "/path/to/spades/bin",
+#'   mismatch.corrector = FALSE,
+#'   read.contigs      = TRUE,
+#'   save.file         = FALSE,
+#'   threads           = 4,
+#'   memory            = 8
+#' )
+#' }
 #'
 #' @export
 
@@ -40,105 +62,88 @@ runSpades = function(read.paths = NULL,
                      full.path.spades = NULL,
                      mismatch.corrector = FALSE,
                      kmer.values = c(33,55,77,99,127),
-                     read.contigs = T,
-                     save.file = T,
+                     read.contigs = TRUE,
+                     save.file = TRUE,
                      save.name = NULL,
                      threads = 1,
                      memory = 4,
-                     overwrite = T,
-                     quiet = T) {
+                     overwrite = FALSE,
+                     quiet = TRUE) {
 
-  # #debug
-  # full.path.spades = spades.path
-  # read.paths = temp.read.path
-  # supress.print = T
-  # save.file = F
-  # read.contigs = T
-  # mismatch.corrector = F
-  # overwrite = T
-
-  #Same adds to bbmap path
-  if (is.null(full.path.spades) == FALSE){
+  if (!is.null(full.path.spades)){
     b.string = unlist(strsplit(full.path.spades, ""))
     if (b.string[length(b.string)] != "/") {
       full.path.spades = paste0(append(b.string, "/"), collapse = "")
-    }#end if
+    }
   } else { full.path.spades = "" }
 
-  if (file.exists(read.paths[1]) == FALSE){ stop("Read files not found.") }
-  if (overwrite == T){
-    if (dir.exists("spades") == TRUE){ system(paste0("rm -r spades")) }
-  }#end
+  if (!file.exists(read.paths[1])){ stop("Read files not found.") }
+  if (overwrite){
+    if (dir.exists("spades")){ unlink("spades", recursive = TRUE) }
+  }
 
-  if (mismatch.corrector == TRUE){ mismatch.string = "--careful " }
-  if (mismatch.corrector == FALSE){ mismatch.string = "" }
+  if (mismatch.corrector){ mismatch.string = "--careful " } else { mismatch.string = "" }
 
-  #Run SPADES on sample
   k = kmer.values
   k.val = paste(k, collapse = ",")
 
-  #Checks to see if one kmer failed or not
-  while (file.exists("spades/contigs.fasta") == F){
-    #stop("the while loop messed up K")
-    #if (counter == 1){
+  while (!file.exists("spades/contigs.fasta")){
 
-    #Single end reads
     if (length(read.paths) == 1){
       system(paste0(full.path.spades, "spades.py --s1 ", read.paths[1],
-                    " -o spades -k ",k.val," ", mismatch.string, "-t ", threads, " -m ", memory),
+                    " -o spades -k ", k.val, " ", mismatch.string, "-t ", threads, " -m ", memory),
              ignore.stdout = quiet)
-    }#end 2 reads
+    }
 
-    if (length(read.paths)  == 2){
+    if (length(read.paths) == 2){
       system(paste0(full.path.spades, "spades.py --pe1-1 ", read.paths[1], " --pe1-2 ", read.paths[2],
-                    " -o spades -k ",k.val," ", mismatch.string, "-t ", threads, " -m ", memory),
+                    " -o spades -k ", k.val, " ", mismatch.string, "-t ", threads, " -m ", memory),
              ignore.stdout = quiet)
-    }#end 2 reads
+    }
 
-    if (length(read.paths)  == 3){
+    if (length(read.paths) == 3){
       system(paste0(full.path.spades, "spades.py --pe1-1 ", read.paths[1],
                     " --pe1-2 ", read.paths[2], " --merged ", read.paths[3],
-                    " -o spades -k ",k.val, " ", mismatch.string, "-t ", threads, " -m ", memory),
+                    " -o spades -k ", k.val, " ", mismatch.string, "-t ", threads, " -m ", memory),
              ignore.stdout = quiet)
-    }#end 3 reads
-    #subtract Ks until it works
+    }
+
     k = k[-length(k)]
     if (length(k) == 0) { break }
     k.val = paste(k, collapse = ",")
-  }#end while
+  }
 
-  #If the k-mers are all run out, therefore nothing can be assembled
   if (length(k) == 0) {
-    print("k-mer values all used up, cannot assemble!")
-    system("rm -r spades")
-    contigs = Biostrings::DNAStringSet()
-    return(contigs)
-  }#end k
+    message("k-mer values all used up, cannot assemble!")
+    unlink("spades", recursive = TRUE)
+    return(Biostrings::DNAStringSet())
+  }
 
-  if (read.contigs == T){
-    if (file.exists("spades/contigs.fasta") == TRUE){
+  if (read.contigs){
+    if (file.exists("spades/contigs.fasta")){
       contigs = Biostrings::readDNAStringSet("spades/contigs.fasta")
     } else {
       contigs = Biostrings::readDNAStringSet("spades/scaffolds.fasta")
-    }#end else
-  } #end if
+    }
+  }
 
-  if (save.file == T){
-    if (file.exists("spades/contigs.fasta") == TRUE){
+  if (save.file){
+    if (file.exists("spades/contigs.fasta")){
       system(paste0("cp spades/contigs.fasta ", save.name, ".fa"))
     } else {
       system(paste0("cp spades/scaffolds.fasta ", save.name, ".fa"))
-    }#end else
-  }#end save file
-  system("rm -r spades")
+    }
+  }
 
-  if (length(contigs) == 0){
-    print("No contigs were assembled.")
-    return(contigs) }
+  unlink("spades", recursive = TRUE)
 
-  if (read.contigs == T) {return(contigs) }
-  if (save.file == T) {return("Contigs were saved to file.") }
+  if (read.contigs){
+    if (length(contigs) == 0){ message("No contigs were assembled.") }
+    return(contigs)
+  }
+
+  if (save.file) { return("Contigs were saved to file.") }
 
   return("Nothing was saved.")
-  ##############################
+
 }# end spades function

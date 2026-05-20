@@ -1,24 +1,25 @@
 #' @title readGenBank
 #'
-#' @description Function for running the program spades to assemble short read sequencing data
+#' @description Placeholder / work-in-progress function for parsing GenBank
+#'   flat files directly without relying on external Bioconductor packages.
+#'   The function body is currently commented out; use
+#'   \code{genbankr::readGenBank} as an alternative until this function is
+#'   complete.
 #'
-#' @param genbank.file path to a folder of sequence alignments in phylip format.
+#' @param genbank.file path to a GenBank flat file (\code{.gb}).
 #'
-#' @param overwrite path to a folder of sequence alignments in phylip format.
+#' @param partial logical passed to the underlying parser to allow partial
+#'   annotations.
 #'
-#' @param rep.origin path to a folder of sequence alignments in phylip format.
+#' @param ret.seq logical; if TRUE, the nucleotide sequence is returned
+#'   alongside annotations.
 #'
-#' @return an alignment of provided sequences in DNAStringSet format. Also can save alignment as a file with save.name
+#' @param verbose logical; if TRUE, progress messages are printed.
+#'
+#' @return Not yet implemented.
 #'
 #' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
-#'
-#' @export
+#' # Not yet implemented.
 
 #Add something to start reference at point of replication
 #

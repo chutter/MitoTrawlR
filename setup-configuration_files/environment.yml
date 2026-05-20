@@ -4,33 +4,56 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - bbmap=38.90
-  - spades>=3.15.2
-  - samtools=1.17
-  - r-doparallel=1.0.17
-  - r-ape=5.7_1
-  - r-data.table=1.14.8
-  - r-essentials=4.2
-  - r-rdrop2=0.8.2.1
-  - r-seqinr=4.2_30
-  - r-stringr=1.5.0
-  - r-foreach=1.5.2
-  - r-biomartr=1.0.2
-  - r-devtools=2.4.5
-  - orna=2.0
-  - cd-hit=4.8.1
+
+  # ── Read processing ────────────────────────────────────────────────────────
+  - fastp=1.3.3
+  - bbmap=39.52
+  - bwa=0.7.19
+  - samtools=1.23.1
+
+  # ── Assembly ───────────────────────────────────────────────────────────────
+  - spades>=4.0.0
   - cap3=10.2011
-  - bioconductor-rsamtools=2.14.0
-  - blast>=2.12.0
-  - mafft=7.520
-  - trimal=1.4.1
-  - bioconductor-genomicranges=1.50.0
-  - bioconductor-biostrings=2.66.0
-  - bioconductor-shortread=1.56.0
-  - iqtree=2.1.2
-  - bwa=0.7.17
-  - hisat2=2.2.1
-  - gatk4=4.4.0.0
-  - fastp=0.23.2
-  - r-stringi=1.7.12
-  - trnascan-se=2.0.7
+  - cd-hit=4.8.1
+
+  # ── Annotation ────────────────────────────────────────────────────────────
+  - blast>=2.17.0
+  - trnascan-se=2.0.12
+
+  # ── Alignment & trimming ──────────────────────────────────────────────────
+  - mafft=7.526
+  - trimal=1.5.1
+
+  # ── Phylogenetics ─────────────────────────────────────────────────────────
+  - iqtree>=3.1.1
+
+  # ── Optional tools ────────────────────────────────────────────────────────
+  - hisat2=2.2.2
+  - gatk4=4.6.2.0
+  - orna=2.0
+
+  # ── R core & utilities ────────────────────────────────────────────────────
+  - r-essentials=4.5
+  - r-devtools=2.5.2
+  - r-ape=5.8
+  - r-data.table=1.17.8
+  - r-stringr=1.5.2
+  - r-stringi=1.8.4
+  - r-foreach=1.5.2
+  - r-doparallel=1.0.17
+  - r-seqinr
+  - r-biomartr
+  - r-rdrop2
+
+  # ── R plotting ────────────────────────────────────────────────────────────
+  - r-ggplot2
+  - r-scales
+  - r-aplot
+  - r-gggenomes
+
+  # ── Bioconductor ──────────────────────────────────────────────────────────
+  - bioconductor-rsamtools=2.26.0
+  - bioconductor-genomicranges=1.62.1
+  - bioconductor-biostrings=2.78.0
+  - bioconductor-shortread=1.68.0
+  - bioconductor-ggtree=4.0.4

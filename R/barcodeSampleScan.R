@@ -1,61 +1,84 @@
 #' @title barcodeSampleScan
 #'
-#' @description Function for removing adaptor sequences from raw Illumina sequence data using the program fastp
+#' @description Assembles a target barcode marker (e.g. 16S rRNA, COI) from
+#'   cleaned reads for each sample using iterative BBMap read recruitment
+#'   followed by SPAdes / CAP3 assembly, then identifies the best-matching
+#'   species via BLAST. The iterative approach starts permissive (min.ref.id =
+#'   0.70) and accumulates reads across rounds, assembling progressively better
+#'   sequences even from low-coverage or divergent samples. Assembly stops as
+#'   soon as the barcode region length is covered (target.length = reference
+#'   barcode length) so the function does not attempt to build a full genome.
 #'
-#' @param input.reads path to a folder of raw reads in fastq format.
+#'   A per-sample summary is appended to logs/barcodeSampleScan_summary.csv
+#'   after every sample so the file grows safely across successive runs.
 #'
-#' @param genbank.file a csv file with a "File" and "Sample" columns, where "File" is the file name and "Sample" is the desired renamed file
+#' @param input.reads path to a directory of cleaned reads. Samples may be in
+#'   per-sample sub-directories or identified by a shared filename prefix.
 #'
-#' @param output.dir the new directory to save the adaptor trimmed sequences
+#' @param barcode.fasta path to a FASTA file of target barcode reference
+#'   sequence(s) (e.g. a single 16S or COI representative). Used as the
+#'   initial assembly seed and to filter off-target contigs during assembly.
 #'
-#' @param mapper "Sample" to run on a single sample or "Directory" to run on a directory of samples
+#' @param output.directory path where per-sample assemblies and BLAST results
+#'   are written. Default: \code{"barcodeScan"}.
 #'
-#' @param min.iterations system path to fastp in case it can't be found
+#' @param database.fasta path to a FASTA file of named barcode sequences for
+#'   local BLAST identification. \code{NULL} (the default) queries the NCBI
+#'   \code{nt} database remotely — no local file needed, but an internet
+#'   connection is required and queries will be slower.
 #'
-#' @param max.iterations system path to fastp in case it can't be found
+#' @param hits.per.sample number of top BLAST hits to keep per sample.
+#'   Default: \code{5}.
 #'
-#' @param min.length system path to fastp in case it can't be found
+#' @param per.max.length fraction above the reference barcode length that
+#'   triggers the max-length guard during assembly. Default: \code{0.50}.
 #'
-#' @param max.length system path to fastp in case it can't be found
+#' @param min.iterations minimum iterative assembly rounds before convergence
+#'   is tested. Default: \code{3}.
 #'
-#' @param min.ref.id system path to fastp in case it can't be found
+#' @param max.iterations maximum iterative assembly rounds. Default: \code{10}.
 #'
-#' @param spades.path system path to fastp in case it can't be found
+#' @param min.ref.id starting BBMap minimum identity for read recruitment.
+#'   Permissive on the first round (0.70), auto-tightened to 0.95 thereafter.
+#'   Default: \code{0.70}.
 #'
-#' @param bbmap.path system path to fastp in case it can't be found
+#' @param spades.path system path to the directory containing
+#'   \code{spades.py}; NULL searches the system PATH.
 #'
-#' @param cap3.path system path to fastp in case it can't be found
+#' @param bbmap.path system path to the directory containing \code{bbmap.sh};
+#'   NULL searches the system PATH.
 #'
-#' @param threads number of computation processing threads
+#' @param blast.path system path to the directory containing \code{blastn} and
+#'   \code{makeblastdb}; NULL searches the system PATH.
 #'
-#' @param memory amount of system memory to use
+#' @param cap3.path system path to the directory containing \code{cap3}; NULL
+#'   searches the system PATH.
 #'
-#' @param resume TRUE to skip samples already completed
+#' @param memory RAM in GB to allocate to BBMap and SPAdes. Default: \code{1}.
 #'
-#' @param overwrite TRUE to overwrite a folder of samples with output.dir
+#' @param threads CPU threads for BBMap, SPAdes, and BLAST. Default: \code{1}.
 #'
-#' @param quiet TRUE to supress screen output
+#' @param overwrite logical; if TRUE the output directory is deleted and
+#'   recreated. Default: \code{FALSE}.
 #'
-#' @return a new directory of adaptor trimmed reads and a summary of the trimming in logs/
+#' @param quiet logical; if TRUE tool screen output is suppressed.
+#'   Default: \code{TRUE}.
 #'
-#' @examples
-#'
-#' your.tree = ape::read.tree(file = "file-path-to-tree.tre")
-#' astral.data = astralPlane(astral.tree = your.tree,
-#'                           outgroups = c("species_one", "species_two"),
-#'                           tip.length = 1)
-#'
+#' @return invisibly; per-sample FASTA assemblies and BLAST result tables are
+#'   written to output.directory, and a cross-sample summary is appended to
+#'   logs/barcodeSampleScan_summary.csv.
 #'
 #' @export
 
-#Iteratively assembles to reference
 barcodeSampleScan = function(input.reads = NULL,
                              barcode.fasta = NULL,
                              output.directory = "barcodeScan",
-                             barcode.database = c("GenBank", "File"),
-                             database.file = NULL,
+                             database.fasta = NULL,
                              hits.per.sample = 5,
-                             per.max.length = 0.25,
+                             per.max.length = 0.50,
+                             min.iterations = 3,
+                             max.iterations = 10,
+                             min.ref.id = 0.70,
                              spades.path = NULL,
                              bbmap.path = NULL,
                              blast.path = NULL,
@@ -66,371 +89,324 @@ barcodeSampleScan = function(input.reads = NULL,
                              quiet = TRUE) {
 
   # #Debug
-  # library(PhyloCap)
-  # setwd("/Volumes/LaCie/Brygomantis/barcodeScan")
-  # input.reads = "/Volumes/LaCie/Brygomantis/processed-reads/pe-merged-reads"
-  # barcode.fasta = "/Volumes/LaCie/Brygomantis/barcodeScan/16S_barcode.fa"
+  # setwd("/Volumes/LaCie/Brygomantis")
+  # input.reads = "processed-reads/cleaned-reads"
+  # barcode.fasta = "barcodeScan/16S_barcode.fa"
   # output.directory = "barcodeScan"
+  # database.fasta = NULL   # NULL = remote NCBI nt
   # memory = 36
   # threads = 8
   # overwrite = TRUE
   # spades.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
-  # bbmap.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin/java /Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
-  # bbmap.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
-  # blast.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
-  # cap3.path = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
+  # bbmap.path  = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
+  # blast.path  = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
+  # cap3.path   = "/Users/chutter/Bioinformatics/conda-envs/PhyloCap/bin"
   # hits.per.sample = 5
-  # per.max.length = 0.25
-  # barcode.database = "GenBank"
+  # per.max.length  = 0.50
+  # min.iterations  = 3
+  # max.iterations  = 10
+  # min.ref.id      = 0.70
 
-  if (is.null(spades.path) == FALSE){
+  #################################################
+  ### Tool path normalisation
+  #################################################
+
+  if (!is.null(spades.path)) {
     b.string = unlist(strsplit(spades.path, ""))
     if (b.string[length(b.string)] != "/") {
       spades.path = paste0(append(b.string, "/"), collapse = "")
-    }#end if
+    }
   } else { spades.path = "" }
 
-  #Same adds to bbmap path
-  if (is.null(bbmap.path) == FALSE){
+  if (!is.null(bbmap.path)) {
     b.string = unlist(strsplit(bbmap.path, ""))
     if (b.string[length(b.string)] != "/") {
       bbmap.path = paste0(append(b.string, "/"), collapse = "")
-    }#end if
+    }
   } else { bbmap.path = "" }
 
-  #Same adds to bbmap path
-  if (is.null(blast.path) == FALSE){
+  if (!is.null(blast.path)) {
     b.string = unlist(strsplit(blast.path, ""))
     if (b.string[length(b.string)] != "/") {
       blast.path = paste0(append(b.string, "/"), collapse = "")
-    }#end if
+    }
   } else { blast.path = "" }
 
-  #Same adds to bbmap path
-  if (is.null(cap3.path) == FALSE){
+  if (!is.null(cap3.path)) {
     b.string = unlist(strsplit(cap3.path, ""))
     if (b.string[length(b.string)] != "/") {
       cap3.path = paste0(append(b.string, "/"), collapse = "")
-    }#end if
+    }
   } else { cap3.path = "" }
 
-  #Quick checks
-  if (is.null(input.reads) == TRUE){ stop("Please provide input reads.") }
-  if (is.null(output.directory) == TRUE){ stop("Please provide an output directory.") }
+  #################################################
+  ### Quick checks
+  #################################################
 
-  #Sets directory and reads in  if (is.null(output.dir) == TRUE){ stop("Please provide an output directory.") }
-  if (dir.exists(output.directory) == F){ dir.create(output.directory) } else {
-    if (overwrite == TRUE){
-      system(paste0("rm -r ", output.directory))
-      dir.create(output.directory)
+  if (is.null(input.reads))   { stop("Please provide input reads.") }
+  if (is.null(barcode.fasta)) { stop("Please provide a barcode reference FASTA.") }
+  if (!file.exists(barcode.fasta)) { stop("Barcode reference FASTA not found: ", barcode.fasta) }
+
+  use.remote.blast = is.null(database.fasta)
+  if (!use.remote.blast && !file.exists(database.fasta)) {
+    stop("Barcode database FASTA not found: ", database.fasta)
+  }
+
+  #################################################
+  ### Output and log directories
+  #################################################
+
+  if (!dir.exists(output.directory)) {
+    dir.create(output.directory)
+  } else if (overwrite) {
+    unlink(output.directory, recursive = TRUE)
+    dir.create(output.directory)
+  }
+
+  if (!dir.exists("logs")) { dir.create("logs") }
+
+  dir.create(paste0(output.directory, "/sample-barcodes"),  showWarnings = FALSE)
+  dir.create(paste0(output.directory, "/blast-reference"),  showWarnings = FALSE)
+
+  #################################################
+  ### One-time setup: reference blast db + identification db
+  #################################################
+
+  # Copy barcode reference and build BLAST db used internally by iterativeAssemble
+  # for off-target filtering, and for the final per-sample identification BLAST.
+  ref.fa = paste0(output.directory, "/blast-reference/reference.fa")
+  if (!file.exists(ref.fa)) {
+    system(paste0("cp ", barcode.fasta, " ", ref.fa))
+  }
+  ref.db = paste0(output.directory, "/blast-reference/barcode")
+  if (!file.exists(paste0(ref.db, ".nhr"))) {
+    system(paste0(blast.path, "makeblastdb -in ", ref.fa,
+                  " -parse_seqids -dbtype nucl -out ", ref.db),
+           ignore.stdout = quiet, ignore.stderr = quiet)
+  }
+
+  # Read reference to get expected barcode length (used as early-exit target
+  # so iterativeAssemble stops once the barcode region is covered, rather than
+  # continuing to assemble a full genome).
+  ref.seq = Biostrings::readDNAStringSet(ref.fa)
+  ref.len  = max(Biostrings::width(ref.seq))
+  min.len  = ref.len
+  max.len  = ref.len + (ref.len * per.max.length)
+
+  # Local identification database (built once if database.fasta is provided)
+  id.blast.db = NULL
+  if (!use.remote.blast) {
+    id.blast.dir = paste0(output.directory, "/barcode-database")
+    dir.create(id.blast.dir, showWarnings = FALSE)
+    id.db.fa = paste0(id.blast.dir, "/database.fa")
+    if (!file.exists(id.db.fa)) {
+      system(paste0("cp ", database.fasta, " ", id.db.fa))
+      system(paste0(blast.path, "makeblastdb -in ", id.db.fa,
+                    " -parse_seqids -dbtype nucl -out ", id.blast.dir, "/database"),
+             ignore.stdout = quiet, ignore.stderr = quiet)
     }
-  }#end else
+    id.blast.db = paste0(id.blast.dir, "/database")
+  } else {
+    cat(" Barcode BLAST mode: remote NCBI nt (internet connection required)\n")
+  }
 
-  #Creates output directory
-  if (dir.exists("logs") == F){ dir.create("logs") }
+  #################################################
+  ### Sample discovery and resume
+  #################################################
 
-  #Sets up the reads
-  files = list.files(path = input.reads, full.names = T, recursive = T)
-  reads = files[grep(pattern = "fastq|fq|clustS", x = files)]
+  files   = list.files(path = input.reads, full.names = TRUE, recursive = TRUE)
+  reads   = files[grep(pattern = "fastq|fq", x = files)]
 
-  samples = gsub(paste0(input.reads, "/"), "", reads)
-  samples = unique(gsub("/.*", "", samples))
+  # Prefer sub-directory-per-sample layout; fall back to flat files
+  samples = list.dirs(input.reads, recursive = FALSE, full.names = FALSE)
+  if (length(samples) == 0) {
+    flat = list.files(input.reads, recursive = FALSE, full.names = FALSE)
+    samples = unique(gsub("_L00.*|_R[12][._].*|_READ[123][._].*|\\.fastq.*|\\.fq.*", "", flat))
+    samples = samples[nchar(samples) > 0]
+  }
 
-  #Skips samples already finished
-  if (overwrite == FALSE){
-    done.names = list.files(output.directory)
-    samples = samples[!samples %in% gsub(".fa$", "", done.names)]
-  } else { samples = samples }
+  if (!overwrite) {
+    done = list.files(paste0(output.directory, "/sample-barcodes"), full.names = FALSE)
+    done = gsub("\\.fa$", "", done)
+    samples = samples[!samples %in% done]
+  }
 
-  if (length(samples) == 0){ stop("No samples to run or incorrect directory.") }
+  if (length(samples) == 0) { return("No samples remain to analyze.") }
 
-  #headers
   blast.headers = c("qName", "tName", "pident", "matches", "misMatches", "gapopen",
-              "qStart", "qEnd", "tStart", "tEnd", "evalue", "bitscore", "qLen", "tLen", "gaps")
+                    "qStart", "qEnd", "tStart", "tEnd", "evalue", "bitscore",
+                    "qLen", "tLen", "gaps")
 
-  dir.create(paste0(output.directory, "/sample-barcodes"))
-  dir.create(paste0(output.directory, "/blast-reference"))
-  system(paste0("cp ", barcode.fasta, " ", output.directory, "/blast-reference/reference.fa"))
-  ref.seq = Biostrings::readDNAStringSet(paste0(output.directory, "/blast-reference/reference.fa"))
-  system(paste0(blast.path, "makeblastdb -in ", barcode.fasta, " -parse_seqids -dbtype nucl ",
-                " -out ", output.directory, "/blast-reference/barcode"))
+  # Helper: append a result row to the rolling per-sample summary CSV
+  append.summary = function(row) {
+    csv.path = "logs/barcodeSampleScan_summary.csv"
+    if (file.exists(csv.path)) {
+      existing = read.csv(csv.path, stringsAsFactors = FALSE)
+      existing = existing[!existing$Sample %in% row$Sample, ]
+      row = rbind(existing, row)
+    }
+    write.csv(row, file = csv.path, row.names = FALSE)
+  }
 
-  #Header data for features and whatnot
-  all.barcodes = Biostrings::DNAStringSet()
-  for (i in 1:length(samples)){
+  #################################################
+  ### Main loop — one sample at a time
+  #################################################
 
+  for (i in seq_along(samples)) {
+
+    cat("\n [barcodeSampleScan] sample", i, "of", length(samples), ":", samples[i], "\n")
+
+    #------------------------------------------------------
+    # Identify and concatenate reads across lanes
+    #------------------------------------------------------
     sample.reads = reads[grep(samples[i], reads)]
 
-    #Concatenate together
-    read1.reads = sample.reads[grep("_1.f.*|-1.f.*|_R1_.*|-R1_.*|_R1-.*|-R1-.*|READ1.*|_R1.fast.*|-R1.fast.*", sample.reads)]
-    read2.reads = sample.reads[grep("_2.f.*|-2.f.*|_R2_.*|-R2_.*|_R2-.*|-R2-.*|READ2.*|_R2.fast.*|-R2.fast.*", sample.reads)]
-    read3.reads = sample.reads[grep("_3.f.*|-3.f.*|_R3_.*|-R3_.*|_R3-.*|-R3-.*|READ3.*|_R3.fast.*|-R3.fast.*|_READ3.fast.*|-READ3.fast.*|_singleton.*|-singleton.*|READ-singleton.*|READ_singleton.*|_READ-singleton.*|-READ_singleton.*|-READ-singleton.*|_READ_singleton.*", sample.reads)]
+    read1.reads = sample.reads[grep("_1\\.f.*|-1\\.f.*|_R1_.*|-R1_.*|_R1-.*|-R1-.*|READ1.*|_R1\\.fast.*|-R1\\.fast.*", sample.reads)]
+    read2.reads = sample.reads[grep("_2\\.f.*|-2\\.f.*|_R2_.*|-R2_.*|_R2-.*|-R2-.*|READ2.*|_R2\\.fast.*|-R2\\.fast.*", sample.reads)]
+    read3.reads = sample.reads[grep("_3\\.f.*|-3\\.f.*|_R3_.*|-R3_.*|READ3.*|_singleton.*|-singleton.*", sample.reads)]
 
-    #Checks for reads
-    if (length(read1.reads) == 0){ stop("error: read pairs could not be identified.")}
-    if (length(read2.reads) == 0 && length(sample.reads) >= 2){ stop("error: read pairs could not be identified.")}
-    if (length(read3.reads) == 0 && length(sample.reads) >= 3){ stop("error: merged set of reads could not be identified.")}
+    if (length(read1.reads) == 0) {
+      warning(samples[i], " read1 files not found. Skipping.")
+      next
+    }
 
-    #Combines duplicate read sets
     it.sample.reads = c()
+
     if (length(read1.reads) >= 2) {
-      system(paste0("cat ", paste0(read1.reads, collapse = " "), " > ", input.reads,
-                    "/", samples[i], "_ALL_READ1.fastq.gz"))
-      it.sample.reads[1] = paste0(input.reads, "/", samples[i], "_ALL_READ1.fastq.gz")
-    } else { it.sample.reads[1] = read1.reads }
+      combined.r1 = paste0(input.reads, "/", samples[i], "_ALL_READ1.fastq.gz")
+      system(paste0("cat ", paste(read1.reads, collapse = " "), " > ", combined.r1))
+      it.sample.reads[1] = combined.r1
+    } else {
+      it.sample.reads[1] = read1.reads
+    }
 
     if (length(read2.reads) >= 2) {
-      system(paste0("cat ", paste0(read2.reads, collapse = " "), " > ", input.reads,
-                    "/", samples[i], "_ALL_READ2.fastq.gz"))
-      it.sample.reads[2] = paste0(input.reads, "/", samples[i], "_ALL_READ2.fastq.gz")
-    } else { it.sample.reads[2] = read2.reads }
+      combined.r2 = paste0(input.reads, "/", samples[i], "_ALL_READ2.fastq.gz")
+      system(paste0("cat ", paste(read2.reads, collapse = " "), " > ", combined.r2))
+      it.sample.reads[2] = combined.r2
+    } else if (length(read2.reads) == 1) {
+      it.sample.reads[2] = read2.reads
+    }
 
     if (length(read3.reads) >= 2) {
-      system(paste0("cat ", paste0(read3.reads, collapse = " "), " > ", input.reads,
-                    "/", samples[i], "_ALL_READ3.fastq.gz"))
-      it.sample.reads[3] = paste0(input.reads, "/", samples[i], "_ALL_READ3.fastq.gz")
-    } else { it.sample.reads[3] = read3.reads }
+      combined.r3 = paste0(input.reads, "/", samples[i], "_ALL_READ3.fastq.gz")
+      system(paste0("cat ", paste(read3.reads, collapse = " "), " > ", combined.r3))
+      it.sample.reads[3] = combined.r3
+    } else if (length(read3.reads) == 1) {
+      it.sample.reads[3] = read3.reads
+    }
 
-    #Runs iterative assembly function
-    dir.create(paste0(output.directory, "/sample-barcodes/", samples[i]))
-    mito.contigs = iterativeAssemble(input.reads = it.sample.reads,
-                                     reference = paste0(output.directory, "/blast-reference/reference.fa"),
-                                     min.ref.id = 0.7,
-                                     memory = memory,
-                                     threads = threads,
-                                     max.iterations = 10,
-                                     min.iterations = 5,
-                                     min.length = Biostrings::width(ref.seq),
-                                     max.length = Biostrings::width(ref.seq)+(Biostrings::width(ref.seq) * per.max.length),
-                                     spades.path = spades.path,
-                                     bbmap.path = bbmap.path,
-                                     blast.path = blast.path,
-                                     cap3.path = cap3.path,
-                                     mapper = "bbmap")
+    it.sample.reads = it.sample.reads[!is.na(it.sample.reads)]
 
-    if (length(mito.contigs) == 0){
-      print(paste0(samples[i], " failed: no reads matching to reference."))
-      next }
+    #------------------------------------------------------
+    # Iterative BBMap + SPAdes / CAP3 assembly.
+    # target.length = ref.len so the loop exits as soon as
+    # the barcode region is covered — no full-genome assembly.
+    #------------------------------------------------------
+    dir.create(paste0(output.directory, "/sample-barcodes/", samples[i]),
+               showWarnings = FALSE)
 
-    #Writes contigs
-    names(mito.contigs) = paste0("seq", rep(1:length(mito.contigs), by = 1))
-    write.loci = as.list(as.character(mito.contigs))
-    PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
-                         paste0(output.directory, "/sample-barcodes/", samples[i], ".fa"), nbchar = 1000000, as.string = T)
+    barcode.contigs = iterativeAssemble(
+      input.reads    = it.sample.reads,
+      reference      = ref.fa,
+      mapper         = "bbmap",
+      min.ref.id     = min.ref.id,
+      memory         = memory,
+      threads        = threads,
+      min.iterations = min.iterations,
+      max.iterations = max.iterations,
+      min.length     = min.len,
+      max.length     = max.len,
+      target.length  = ref.len,
+      spades.path    = spades.path,
+      bbmap.path     = bbmap.path,
+      blast.path     = blast.path,
+      cap3.path      = cap3.path,
+      quiet          = quiet
+    )
 
-    #Delete combined files
-    if (length(sample.reads) > 3) {
-      system(paste0("rm ", input.reads, "/", samples[i], "_ALL_READ*"))
-    }#end delete
+    # Delete any multi-lane concatenated files created above
+    combined.files = grep("_ALL_READ", c(it.sample.reads), value = TRUE)
+    if (length(combined.files) > 0) { unlink(combined.files) }
 
-    #Matches samples to loci
-    system(paste0(blast.path, "blastn -task dc-megablast -db ", output.directory, "/blast-reference/barcode",
-                  " -query ", output.directory, "/sample-barcodes/", samples[i], ".fa",
-                  " -out ", output.directory, "/", samples[i], "_match.txt",
-                  " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen gaps\" ",
-                  " -num_threads ", threads))
-
-    #Need to load in transcriptome for each species and take the matching transcripts to the database
-    match.data = fread(paste0(output.directory, "/", samples[i], "_match.txt"), sep = "\t", header = F, stringsAsFactors = FALSE)
-
-    if (nrow(match.data) == 0){
-      print("No matches found.")
-      system(paste0("rm ", output.directory, "/", samples[i], "_match.txt"))
+    if (length(barcode.contigs) == 0) {
+      cat(" ", samples[i], ": no barcode assembled — no reads matching reference.\n")
+      temp.row = data.frame(Sample = samples[i],
+                            ContigLength = 0L, ContigCount = 0L,
+                            BestMatch = "No-match",
+                            Pident = NA_real_, AlignLength = NA_integer_,
+                            Evalue = NA_real_, Bitscore = NA_real_,
+                            stringsAsFactors = FALSE)
+      append.summary(temp.row)
       next
-    }#end if
+    }
 
-    if (nrow(match.data) == 1){
-      system(paste0("rm ", output.directory, "/", samples[i], "_match.txt"))
-      #Writes the loci
-      write.loci = as.list(as.character(mito.contigs))
-      PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
-                  paste0(output.directory, "/sample-barcodes/", samples[i], ".fa"), nbchar = 1000000, as.string = T)
-      #Saves into one file
-      names(mito.contigs) = samples[i]
-      all.barcodes = append(all.barcodes, mito.contigs)
-      next
-    }# end if
+    # Save assembled barcode contigs
+    names(barcode.contigs) = paste0("seq", seq_along(barcode.contigs))
+    out.fa = paste0(output.directory, "/sample-barcodes/", samples[i], ".fa")
+    write.loci = as.list(as.character(barcode.contigs))
+    PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
+                              out.fa, nbchar = 1000000, as.string = TRUE)
 
-    #Filters to best
-    setnames(match.data, blast.headers)
+    contig.len   = sum(Biostrings::width(barcode.contigs))
+    contig.count = length(barcode.contigs)
 
-    #Deals with duplicate matches to same marker
-    filt.data = match.data[match.data$bitscore == max(match.data$bitscore)][1]
-    save.contigs = mito.contigs[names(mito.contigs) %in% filt.data$qName]
+    #------------------------------------------------------
+    # BLAST assembled contigs for species identification
+    #------------------------------------------------------
+    blast.out = paste0(output.directory, "/sample-barcodes/", samples[i], "_blast.txt")
 
-    #saves the file
-    system(paste0("rm ", output.directory, "/", samples[i], "_match.txt"))
-    #Writes the loci
-    write.loci = as.list(as.character(save.contigs))
-    PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
-                         paste0(output.directory, "/sample-barcodes/", samples[i], ".fa"), nbchar = 1000000, as.string = T)
-    #Saves into one file
-    names(save.contigs) = samples[i]
-    all.barcodes = append(all.barcodes, save.contigs)
+    if (use.remote.blast) {
+      cat(" BLASTing", samples[i], "against NCBI nt (remote)...\n")
+      system(paste0(blast.path, "blastn -task dc-megablast -remote -db nt",
+                    " -query ", out.fa,
+                    " -out ", blast.out,
+                    " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen gaps\"",
+                    " -max_target_seqs ", hits.per.sample),
+             ignore.stdout = quiet, ignore.stderr = quiet)
+    } else {
+      system(paste0(blast.path, "blastn -task dc-megablast",
+                    " -db ", id.blast.db,
+                    " -query ", out.fa,
+                    " -out ", blast.out,
+                    " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen gaps\"",
+                    " -max_target_seqs ", hits.per.sample,
+                    " -num_threads ", threads),
+             ignore.stdout = quiet, ignore.stderr = quiet)
+    }
 
-  }#end i loop
+    if (!file.exists(blast.out) || file.info(blast.out)$size == 0) {
+      cat(" ", samples[i], ": assembly succeeded but no BLAST hits found.\n")
+      temp.row = data.frame(Sample = samples[i],
+                            ContigLength = contig.len, ContigCount = contig.count,
+                            BestMatch = "No-hit",
+                            Pident = NA_real_, AlignLength = NA_integer_,
+                            Evalue = NA_real_, Bitscore = NA_real_,
+                            stringsAsFactors = FALSE)
+    } else {
+      match.data = read.table(blast.out, sep = "\t", header = FALSE,
+                              stringsAsFactors = FALSE)
+      colnames(match.data) = blast.headers
+      best = match.data[which.max(match.data$bitscore), ]
+      temp.row = data.frame(Sample = samples[i],
+                            ContigLength = contig.len,
+                            ContigCount  = contig.count,
+                            BestMatch    = best$tName,
+                            Pident       = round(best$pident, 2),
+                            AlignLength  = best$matches,
+                            Evalue       = best$evalue,
+                            Bitscore     = best$bitscore,
+                            stringsAsFactors = FALSE)
+    }
 
-  #Writes the loci
-  write.loci = as.list(as.character(all.barcodes))
-  PhyloCap::writeFasta(sequences = write.loci, names = names(write.loci),
-              paste0(output.directory, "/all-sample_barcodes.fa"), nbchar = 1000000, as.string = T)
+    #------------------------------------------------------
+    # Append to rolling summary CSV
+    #------------------------------------------------------
+    append.summary(temp.row)
+    print(paste0(samples[i], " barcode scan complete!"))
 
-  ########## USER PROVIDED DB
-  if (barcode.database == "File"){
-    dir.create(paste0(output.directory, "/barcode-database"))
-    system(paste0("cp ", database.file, " ", output.directory, "/barcode-database/database.fa"))
-    #Make blast db
-    system(paste0(blast.path, "makeblastdb -in ", database.file, " -parse_seqids -dbtype nucl ",
-                  " -out ", output.directory, "/barcode-database/database"))
-    #blasting away
-    system(paste0(blast.path, "blastn -task dc-megablast -db ", output.directory, "/barcode-database/database",
-                  " -query ", output.directory, "/all-sample_barcodes.fa",
-                  " -out ", output.directory, "/local-blast-hits.txt",
-                  " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen gaps\" ",
-                  " -num_threads ", threads))
+  }  # end for i
 
-    #Reads in blast results
-    blast.headers = c("qName", "tName", "pident", "matches", "misMatches", "gapopen",
-                      "qStart", "qEnd", "tStart", "tEnd", "evalue", "bitscore", "qLen", "tLen", "gaps")
-    match.data = fread(paste0(output.directory, "/local-blast-hits.txt"), sep = "\t", header = F, stringsAsFactors = FALSE)
-    setnames(match.data, blast.headers)
-
-    ##### TO DO REST WITH EXAMPLE
-
-
-
-
-
-
-
-
-
-    #############################
-
-  }################## end Database if
-
-  ########## BLAST to genbank
-  if (barcode.database == "GenBank"){
-
-    print("Now using remote blast. This may take some time....")
-    #Blast assembled data using remote blast
-    system(paste0(blast.path, "blastn -task blastn -db nt -query ",
-                  output.directory, "/all-sample_barcodes.fa",
-                  " -remote -out ", output.directory, "/remote-blast-hits.txt -max_target_seqs ", hits.per.sample, " -max_hsps 1",
-                  " -outfmt \"6 qseqid sseqid sacc pident length mismatch evalue bitscore qlen slen stitle sscinames staxids qcovs\""))
-
-    #Reads in blast results
-    blast.headers = c("qseqid", "sseqid", "sacc", "pident", "length", "mismatch", "evalue",
-                      "bitscore", "qlen", "slen","stitle","sscinames", "staxids", "qcovs")
-    match.data = fread(paste0(output.directory, "/remote-blast-hits.txt"), sep = "\t", header = F, stringsAsFactors = FALSE)
-    setnames(match.data, blast.headers)
-    print("Remote blast finished!")
-
-    ########## Create nice output of blast results
-    header.data = c("Sample", "GenBank_ID", "GenBank_Order", "GenBank_Family", "GenBank_Species",
-                    "pident", "length", "mismatch", "evalue", "bitscore", "coverage")
-
-    #CReate empty dataset
-    collect.data = data.table(matrix(as.numeric(0), nrow = length(samples)*hits.per.sample, ncol = length(header.data)))
-    setnames(collect.data, header.data)
-    collect.data[, Sample:=as.character(Sample)]
-    collect.data[, GenBank_ID:=as.character(GenBank_ID)]
-    collect.data[, GenBank_Species:=as.character(GenBank_Species)]
-    collect.data[, GenBank_Family:=as.character(GenBank_Family)]
-    collect.data[, GenBank_Order:=as.character(GenBank_Order)]
-
-    index.val = as.integer(1)
-    for (i in 1:length(samples)){
-
-      sample.data = match.data[grep(gsub(".fa$", "", samples[i]), match.data$qseqid), ]
-
-      #If no data
-      if (nrow(sample.data) == 0){
-        print("No GenBanks matches were found or not enough sequence to match. ")
-        next
-      }#end if
-
-      #Goes through each sample and assigns genbank taxonomy
-      for (j in 1:nrow(sample.data)){
-        #Looks up genbank taxonomy somehow.
-        system(paste0("curl https://taxonomy.jgi-psf.org/accession/", sample.data$sacc[j],
-                      " > output.txt"))
-        tax = readLines("output.txt", warn = FALSE)
-
-        if (length(grep("Not found.", tax)) != 0) {
-          set(collect.data, i = as.integer(index.val), j = match("Sample", header.data), value =  gsub(".fa$", "", samples[i]) )
-          set(collect.data, i = as.integer(index.val), j = match("GenBank_ID", header.data), value = "Taxonomy-not-found" )
-          index.val = index.val + as.integer(1)
-          next
-        }
-
-        #Species data
-        spp.line = tax[grep("\"species\":", tax)+1]
-        spp.line = gsub("\"", "", spp.line)
-        spp.line = gsub(",", "", spp.line)
-        spp.line = gsub("\\.", "", spp.line)
-        spp.line = gsub(".*name: ", "", spp.line)
-        spp.line = gsub(" ", "_", spp.line)
-        #Family data
-        fam.line = tax[grep("\"family\":", tax)+1]
-        fam.line = gsub("\"", "", fam.line)
-        fam.line = gsub(",", "", fam.line)
-        fam.line = gsub("\\.", "", fam.line)
-        fam.line = gsub(".*name: ", "", fam.line)
-        #Order Data
-        ord.line = tax[grep("\"order\":", tax)+1]
-        ord.line = gsub("\"", "", ord.line)
-        ord.line = gsub(",", "", ord.line)
-        ord.line = gsub("\\.", "", ord.line)
-        ord.line = gsub(".*name: ", "", ord.line)
-
-        if (length(ord.line) == 0){ord.line = "Not-Found" }
-
-        unlink("output.txt")
-
-        #Saves the data
-        set(collect.data, i = as.integer(index.val), j = match("Sample", header.data), value =  gsub(".fa$", "", samples[i]) )
-        set(collect.data, i = as.integer(index.val), j = match("GenBank_ID", header.data), value =  sample.data$sacc[j])
-        set(collect.data, i = as.integer(index.val), j = match("GenBank_Order", header.data), value =  ord.line)
-        set(collect.data, i = as.integer(index.val), j = match("GenBank_Species", header.data), value =  spp.line)
-        set(collect.data, i = as.integer(index.val), j = match("GenBank_Family", header.data), value =  fam.line)
-        set(collect.data, i = as.integer(index.val), j = match("pident", header.data), value =  sample.data$pident[j])
-        set(collect.data, i = as.integer(index.val), j = match("length", header.data), value =  sample.data$length[j])
-        set(collect.data, i = as.integer(index.val), j = match("mismatch", header.data), value =  sample.data$mismatch[j])
-        set(collect.data, i = as.integer(index.val), j = match("evalue", header.data), value =  sample.data$evalue[j])
-        set(collect.data, i = as.integer(index.val), j = match("bitscore", header.data), value =  sample.data$bitscore[j])
-        set(collect.data, i = as.integer(index.val), j = match("coverage", header.data), value =  sample.data$qcovs[j])
-        index.val = index.val + as.integer(1)
-      }#end j loop
-    }#end i loop
-
-    #Finds the best match per each sample
-    all.data = collect.data[collect.data$Sample != 0,]
-    samples = unique(all.data$Sample)
-
-    spp.data = c()
-    for (k in 1:length(samples)){
-
-      #Removes duplicate species from the same genbank code (spp data)
-      tmp.data = all.data[all.data$Sample %in% samples[k],]
-      #tmp.data = tmp.data[!duplicated(tmp.data$GenBank_Species),]
-      #spp.data = rbind(spp.data, tmp.data)
-
-      #Filters to the best matches
-      best.data = tmp.data[tmp.data$bitscore == max(tmp.data$bitscore),]
-      best.data = best.data[best.data$pident == max(best.data$pident),]
-      best.data = best.data[best.data$evalue == min(best.data$evalue),]
-      best.data = best.data[best.data$coverage == max(best.data$coverage),][1]
-      spp.data = rbind(spp.data, best.data)
-
-    }#end i loop
-
-    #Saves the two datasets
-    write.csv(all.data, paste0(output.directory, "/All-top-matches_Samples2Genbank.csv"), row.names = F)
-    write.csv(spp.data, paste0(output.directory, "/Best-top-match_Samples2GenBank.csv"), row.names = F)
-
-  }################## end GenBank if
-
-}#end function
+}  # end function
 
 # END SCRIPT
