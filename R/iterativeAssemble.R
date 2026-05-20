@@ -261,26 +261,23 @@ iterativeAssemble = function(input.reads = NULL,
 
     spades.contigs = spades.contigs[Biostrings::width(spades.contigs) >= 100]
 
-    #Saves the raw reads themselves
-    if (length(spades.contigs) == 0){
-      #Loops through each set of reads
+    #If SPAdes produced contigs, merge with accumulated; otherwise fall back to raw reads via CAP3
+    if (length(spades.contigs) > 0) {
+      combined.contigs = append(combined.contigs, spades.contigs)
+    } else {
       save.seqs = Biostrings::DNAStringSet()
       for (x in seq_along(temp.read.path)){
         if (file.info(temp.read.path[x])$size == 0){ next }
-        #Sa es if there are reads
         temp.fastq = Biostrings::readDNAStringSet(temp.read.path[x], format = "fastq")
         save.seqs = append(save.seqs, temp.fastq)
       }#end x
-      #Removes if too many
       if (length(save.seqs) >= 1000){ save.seqs = save.seqs[1:200] }
-
-      #Saves them if there are any changes
       if (length(save.seqs) != 0){
         save.seqs = append(save.seqs, combined.contigs)
         names(save.seqs) = paste0("seq", seq_along(save.seqs))
         combined.contigs = MitoTrawlR::runCap3(contigs = save.seqs,
-                                            read.R = TRUE,
-                                            cap3.path = cap3.path)
+                                               read.R = TRUE,
+                                               cap3.path = cap3.path)
       } else { combined.contigs = Biostrings::DNAStringSet() }
     }
 
@@ -291,12 +288,11 @@ iterativeAssemble = function(input.reads = NULL,
       next
     }
 
-    #Cap3 to combine old and new
-    combined.contigs = append(combined.contigs, spades.contigs)
+    #Cap3 to merge contigs from this iteration
     if (length(combined.contigs) > 1){
       combined.contigs = MitoTrawlR::runCap3(contigs = combined.contigs,
-                                          read.R = TRUE,
-                                          cap3.path = cap3.path)
+                                             read.R = TRUE,
+                                             cap3.path = cap3.path)
     }
 
     #Blasts and remvoes stuff that doesn't match to reference
