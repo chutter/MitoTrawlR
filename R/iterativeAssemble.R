@@ -157,17 +157,6 @@ iterativeAssemble = function(input.reads = NULL,
   repeat.counter = 0
   seeding = TRUE
 
-  #Makes empty files
-  file.create("iterative_temp/read1.fq")
-
-  if (length(input.reads) >= 2){
-    file.create("iterative_temp/read2.fq")
-  }#end paired end
-
-  if (length(input.reads) >= 3){
-    file.create("iterative_temp/read3.fq")
-  }#end paired end
-
   #############################
   ## While loop start
   #############################
@@ -196,31 +185,17 @@ iterativeAssemble = function(input.reads = NULL,
                       " vslow k=12 minid=", min.ref.id,
                       " outm1=iterative_temp/temp_read1.fq"),
                ignore.stderr = quiet, ignore.stdout = quiet)
-        #Saves and combines
-        system(paste0("cat iterative_temp/read1.fq iterative_temp/temp_read1.fq >> iterative_temp/new_read1.fq"))
-        file.remove("iterative_temp/read1.fq")
-        system(paste0("mv iterative_temp/new_read1.fq iterative_temp/read1.fq"))
-        file.remove("iterative_temp/temp_read1.fq")
-        temp.read.path = paste0("iterative_temp/read1.fq")
+        temp.read.path = "iterative_temp/temp_read1.fq"
       }#end 1 read
 
       if (length(set.reads) >= 2){
-
         #Pick out matching reads to mt Genomes
         system(paste0(bbmap.path, "bbmap.sh -Xmx", memory, "g ref=iterative_temp/current_seed.fa", " in1=", set.reads[1],
                       " in2=", set.reads[2], " vslow k=12 minid=", min.ref.id,
                       " outm1=iterative_temp/temp_read1.fq outm2=iterative_temp/temp_read2.fq"),
                ignore.stderr = quiet, ignore.stdout = quiet)
-        #Saves and combines
-        system(paste0("cat iterative_temp/read1.fq iterative_temp/temp_read1.fq >> iterative_temp/new_read1.fq"))
-        system(paste0("cat iterative_temp/read2.fq iterative_temp/temp_read2.fq >> iterative_temp/new_read2.fq"))
-        file.remove(c("iterative_temp/read1.fq", "iterative_temp/read2.fq"))
-        system(paste0("mv iterative_temp/new_read1.fq iterative_temp/read1.fq"))
-        system(paste0("mv iterative_temp/new_read2.fq iterative_temp/read2.fq"))
-        file.remove(c("iterative_temp/temp_read1.fq", "iterative_temp/temp_read2.fq"))
-        temp.read.path = c(paste0("iterative_temp/read1.fq"),
-                           paste0("iterative_temp/read2.fq") )
-
+        temp.read.path = c("iterative_temp/temp_read1.fq",
+                           "iterative_temp/temp_read2.fq")
       }#end 2 read
 
       if (length(set.reads) == 3){
@@ -229,20 +204,12 @@ iterativeAssemble = function(input.reads = NULL,
                       " in=", set.reads[3], " vslow k=12 minid=", min.ref.id,
                       " outm=iterative_temp/temp_read3.fq"),
                ignore.stderr = quiet, ignore.stdout = quiet)
-        #Saves and combines
-        system(paste0("cat iterative_temp/read3.fq iterative_temp/temp_read3.fq >> iterative_temp/new_read3.fq"))
-        file.remove("iterative_temp/read3.fq")
-        system(paste0("mv iterative_temp/new_read3.fq iterative_temp/read3.fq"))
-        file.remove("iterative_temp/temp_read3.fq")
-        temp.read.path = c(paste0("iterative_temp/read1.fq"),
-                           paste0("iterative_temp/read2.fq"),
-                           paste0("iterative_temp/read3.fq"))
-
-        if (file.info("iterative_temp/read3.fq")$size == 0){
-          temp.read.path = c(paste0("iterative_temp/read1.fq"),
-                             paste0("iterative_temp/read2.fq"))
-        }#end size if
-
+        if (file.exists("iterative_temp/temp_read3.fq") &&
+            file.info("iterative_temp/temp_read3.fq")$size > 0) {
+          temp.read.path = c("iterative_temp/temp_read1.fq",
+                             "iterative_temp/temp_read2.fq",
+                             "iterative_temp/temp_read3.fq")
+        }
       }#end set read 3
 
     }#end bbmap if
