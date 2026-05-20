@@ -1,7 +1,7 @@
 ##############################################################################
 ## MitoTrawlR — Main Workflow Script
-## Edit configuration-file.R first, then run this script end-to-end
-## (or source individual sections as needed).
+## Edit mitotrawlr_configuration-file.R first, then run this script
+## end-to-end (or source individual sections as needed).
 ##############################################################################
 
 # Install / update packages
@@ -12,8 +12,21 @@ library(PhyloProcessR)
 library(MitoTrawlR)
 
 # Load configuration and set working directory
-source("configuration-file.R")
+source("mitotrawlr_configuration-file.R")
 setwd(working.directory)
+
+# Create the analysis output directory and define path shortcuts
+.adir = file.path(working.directory, analysis.dir)
+dir.create(.adir, recursive = TRUE, showWarnings = FALSE)
+
+.ref.dir    = file.path(.adir, "reference")
+.contigs    = file.path(.adir, "draftContigs")
+.annot      = file.path(.adir, "Annotations")
+.align.un   = file.path(.adir, "Alignments", "untrimmed-alignments")
+.align.tr   = file.path(.adir, "Alignments", "trimmed-alignments")
+.genomes    = file.path(.adir, "MitoGenomes")
+.phylo      = file.path(.adir, "Phylogeny")
+.barcode    = file.path(.adir, "barcodeScan")
 
 
 ##############################################################################
@@ -33,7 +46,7 @@ pass.fail = MitoTrawlR::setupCheck(
   trimAl.path   = trimAl.path,
   tRNAscan.path = tRNAscan.path
 )
-if (!pass.fail) stop("One or more required programs are missing. Check paths in configuration-file.R.")
+if (!pass.fail) stop("One or more required programs are missing. Check paths in the configuration file.")
 
 
 ##############################################################################
@@ -44,7 +57,7 @@ if (run.barcode.scan) {
   MitoTrawlR::barcodeSampleScan(
     input.reads      = read.directory,
     barcode.fasta    = barcode.fasta,
-    output.directory = "barcodeScan",
+    output.directory = .barcode,
     barcode.database = barcode.database,
     database.file    = barcode.database.file,
     hits.per.sample  = barcode.hits.per.sample,
@@ -69,7 +82,7 @@ MitoTrawlR::buildReference(
   reference.fasta = reference.fasta,
   annotation.file = annotation.file,
   annotation.type = annotation.type,
-  reference.name  = "reference",
+  reference.name  = .ref.dir,
   overwrite       = overwrite,
   rep.origin      = rep.origin
 )
@@ -81,8 +94,8 @@ MitoTrawlR::buildReference(
 
 MitoTrawlR::mitochondrialCapture(
   input.reads    = read.directory,
-  reference.name = "reference",
-  output.dir     = "draftContigs",
+  reference.name = .ref.dir,
+  output.dir     = .contigs,
   min.iterations = min.iterations,
   max.iterations = max.iterations,
   min.length     = min.length,
@@ -104,8 +117,8 @@ MitoTrawlR::mitochondrialCapture(
 ##############################################################################
 
 MitoTrawlR::annotateMitoContigs(
-  contig.folder  = "draftContigs",
-  reference.name = "reference",
+  contig.folder  = .contigs,
+  reference.name = .ref.dir,
   blast.path     = blast.path,
   tRNAscan.path  = tRNAscan.path,
   cap3.path      = cap3.path,
@@ -122,8 +135,8 @@ MitoTrawlR::annotateMitoContigs(
 ##############################################################################
 
 MitoTrawlR::markerAlignment(
-  input.folder   = "Annotations/sample-markers",
-  reference.name = "reference",
+  input.folder   = file.path(.annot, "sample-markers"),
+  reference.name = .ref.dir,
   threads        = threads,
   mafft.path     = mafft.path,
   max.distance   = max.alignment.distance,
@@ -137,44 +150,41 @@ MitoTrawlR::markerAlignment(
 
 if (run.trim.alignments) {
   MitoTrawlR::trimMitoAlignments(
-    alignment.dir          = "Alignments/untrimmed-alignments",
-    alignment.format       = "phylip",
-    output.dir             = "Alignments/trimmed-alignments",
-    output.format          = "phylip",
-    TrimAl                 = run.TrimAl,
-    TrimAl.path            = trimAl.path,
-    TAPER                  = run.TAPER,
-    TAPER.path             = taper.path,
-    julia.path             = julia.path,
-    trim.external          = trim.external,
-    min.external.percent   = min.external.percent,
-    trim.coverage          = trim.coverage,
-    min.coverage.percent   = min.coverage.percent,
-    min.coverage.bp        = min.coverage.bp,
-    trim.column            = trim.column,
-    min.column.gap.percent = min.column.gap.percent,
-    convert.ambiguous.sites = convert.ambiguous.sites,
-    alignment.assess       = alignment.assess,
-    min.alignment.length   = min.alignment.length,
-    min.taxa.alignment     = min.taxa.alignment,
+    alignment.dir            = .align.un,
+    alignment.format         = "phylip",
+    output.dir               = .align.tr,
+    output.format            = "phylip",
+    TrimAl                   = run.TrimAl,
+    TrimAl.path              = trimAl.path,
+    trim.external            = trim.external,
+    min.external.percent     = min.external.percent,
+    trim.coverage            = trim.coverage,
+    min.coverage.percent     = min.coverage.percent,
+    min.coverage.bp          = min.coverage.bp,
+    trim.column              = trim.column,
+    min.column.gap.percent   = min.column.gap.percent,
+    convert.ambiguous.sites  = convert.ambiguous.sites,
+    alignment.assess         = alignment.assess,
+    min.alignment.length     = min.alignment.length,
+    min.taxa.alignment       = min.taxa.alignment,
     max.alignment.gap.percent = max.alignment.gap.percent,
-    threads                = threads,
-    memory                 = memory,
-    overwrite              = overwrite
+    threads                  = threads,
+    memory                   = memory,
+    overwrite                = overwrite
   )
 }
 
 
 ##############################################################################
 ## Step 8: Concatenate per-marker alignments into whole-mitogenome alignment
-##   Run once on untrimmed, and again on trimmed if trimming was done.
+##   Run on untrimmed, and again on trimmed if trimming was done.
 ##############################################################################
 
 MitoTrawlR::alignMitogenomes(
-  alignment.folder = "Alignments/untrimmed-alignments",
-  draft.contigs    = "draftContigs",
-  reference.name   = "reference",
-  output.dir       = "MitoGenomes",
+  alignment.folder = .align.un,
+  draft.contigs    = .contigs,
+  reference.name   = .ref.dir,
+  output.dir       = .genomes,
   dataset.name     = "untrimmed",
   mafft.path       = mafft.path,
   threads          = threads,
@@ -183,10 +193,10 @@ MitoTrawlR::alignMitogenomes(
 
 if (run.trim.alignments) {
   MitoTrawlR::alignMitogenomes(
-    alignment.folder = "Alignments/trimmed-alignments",
-    draft.contigs    = "draftContigs",
-    reference.name   = "reference",
-    output.dir       = "MitoGenomes",
+    alignment.folder = .align.tr,
+    draft.contigs    = .contigs,
+    reference.name   = .ref.dir,
+    output.dir       = .genomes,
     dataset.name     = "trimmed",
     mafft.path       = mafft.path,
     threads          = threads,
@@ -201,11 +211,11 @@ if (run.trim.alignments) {
 
 if (run.build.mitogenomes) {
   MitoTrawlR::buildMitogenomes(
-    annotation.dir   = "Annotations",
-    alignment.folder = "Alignments/untrimmed-alignments",
-    genome.alignment = paste0("MitoGenomes/alignments/untrimmed_mitogenome_alignment.phy"),
-    genome.dir       = "MitoGenomes",
-    reference.name   = "reference",
+    annotation.dir   = .annot,
+    alignment.folder = .align.un,
+    genome.alignment = file.path(.genomes, "alignments", "untrimmed_mitogenome_alignment.phy"),
+    genome.dir       = .genomes,
+    reference.name   = .ref.dir,
     output.dir       = "untrimmed-finished",
     blast.path       = blast.path,
     threads          = threads,
@@ -220,13 +230,12 @@ if (run.build.mitogenomes) {
 
 if (run.phylogeny) {
 
-  # Choose alignment: prefer trimmed if available, fall back to untrimmed
-  phylo.align.dir = if (run.trim.alignments && phylo.dataset == "trimmed") "trimmed" else "untrimmed"
+  .phylo.set = if (run.trim.alignments && phylo.dataset == "trimmed") "trimmed" else "untrimmed"
 
   MitoTrawlR::buildPhylogeny(
-    alignment.file   = paste0("MitoGenomes/alignments/", phylo.align.dir, "_mitogenome_alignment.phy"),
-    feature.table    = paste0("MitoGenomes/alignments/", phylo.align.dir, "_alignment_feature_table.txt"),
-    output.dir       = "Phylogeny",
+    alignment.file   = file.path(.genomes, "alignments", paste0(.phylo.set, "_mitogenome_alignment.phy")),
+    feature.table    = file.path(.genomes, "alignments", paste0(.phylo.set, "_alignment_feature_table.txt")),
+    output.dir       = .phylo,
     dataset.name     = dataset.name,
     iqtree.path      = iqtree.path,
     threads          = threads,
@@ -243,19 +252,19 @@ if (run.phylogeny) {
 
 if (run.plot.tree) {
 
-  phylo.align.dir = if (run.trim.alignments && phylo.dataset == "trimmed") "trimmed" else "untrimmed"
+  .phylo.set = if (run.trim.alignments && phylo.dataset == "trimmed") "trimmed" else "untrimmed"
 
   MitoTrawlR::plotMitoGenomes(
-    tree.file         = paste0("Phylogeny/", dataset.name, ".treefile"),
-    bp.table          = paste0("MitoGenomes/logs/untrimmed_mito-alignment_bp-count.csv"),
-    feature.table     = paste0("MitoGenomes/alignments/", phylo.align.dir, "_alignment_feature_table.txt"),
-    genome.dir        = "MitoGenomes",
+    tree.file         = file.path(.phylo, paste0(dataset.name, ".treefile")),
+    bp.table          = file.path(.genomes, "logs", "untrimmed_mito-alignment_bp-count.csv"),
+    feature.table     = file.path(.genomes, "alignments", paste0(.phylo.set, "_alignment_feature_table.txt")),
+    genome.dir        = .genomes,
     output.format     = figure.format,
     outgroup          = outgroup,
     show.marker.types = show.marker.types,
     overwrite         = TRUE
   )
-  # Plot saved to: MitoGenomes/figures/mitogenome_completeness.<format>
+  # Plot saved to: <analysis.dir>/MitoGenomes/figures/mitogenome_completeness.<format>
 }
 
 
@@ -265,8 +274,8 @@ if (run.plot.tree) {
 
 if (run.plot.genome.comparison) {
   MitoTrawlR::plotGenomeComparison(
-    annotation.dir = "Annotations",
-    genome.dir     = "MitoGenomes",
+    annotation.dir = .annot,
+    genome.dir     = .genomes,
     output.format  = figure.format,
     color.by       = genome.color.by,
     show.links     = genome.show.links,
@@ -274,5 +283,5 @@ if (run.plot.genome.comparison) {
     label.genes    = genome.label.genes,
     overwrite      = TRUE
   )
-  # Plot saved to: MitoGenomes/figures/genome_comparison.<format>
+  # Plot saved to: <analysis.dir>/MitoGenomes/figures/genome_comparison.<format>
 }

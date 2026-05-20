@@ -9,8 +9,12 @@
 ## 1. Directories and dataset
 ##############################################################################
 
-# Working directory — all relative paths below are relative to this
+# Working directory — top-level project folder
 working.directory = "/path/to/your/project"
+
+# All pipeline outputs go inside this sub-directory of working.directory
+# Change to suit your project layout; it will be created automatically
+analysis.dir = "data-analysis/mitogenome"
 
 # Folder of processed reads (one sub-directory per sample)
 read.directory = "/path/to/processed-reads"
@@ -149,9 +153,6 @@ max.alignment.distance = 0.40
 # Run TrimAl automated column trimming
 run.TrimAl = TRUE
 
-# Run TAPER masking (requires julia and TAPER installed separately)
-run.TAPER = FALSE
-
 # Trim leading/trailing gap columns
 trim.external = TRUE
 
@@ -251,9 +252,5 @@ mafft.path   = paste0(conda.env, "/bin")
 iqtree.path  = paste0(conda.env, "/bin")
 trimAl.path  = paste0(conda.env, "/bin")
 tRNAscan.path = paste0(conda.env, "/bin")
-
-# TAPER / Julia paths (only needed when run.TAPER = TRUE)
-julia.path   = NULL
-taper.path   = NULL
 
 #### End configuration
