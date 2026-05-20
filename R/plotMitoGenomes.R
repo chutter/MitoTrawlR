@@ -94,6 +94,11 @@ plotMitoGenomes = function(tree.file = NULL,
   # outgroup      = NULL
   # show.marker.types = TRUE
 
+  for (pkg in c("ggplot2", "ggtree", "aplot", "scales")) {
+    if (!requireNamespace(pkg, quietly = TRUE))
+      stop("Package '", pkg, "' is required for plotMitoGenomes(). Install it with: install.packages('", pkg, "')")
+  }
+
   output.format = match.arg(output.format)
 
   if (is.null(output.file)) {

@@ -82,6 +82,11 @@ plotGenomeComparison = function(annotation.dir = "Annotations",
                                 label.genes = FALSE,
                                 overwrite = TRUE) {
 
+  for (pkg in c("ggplot2", "gggenomes")) {
+    if (!requireNamespace(pkg, quietly = TRUE))
+      stop("Package '", pkg, "' is required for plotGenomeComparison(). Install it with: install.packages('", pkg, "')")
+  }
+
   output.format = match.arg(output.format)
   color.by      = match.arg(color.by)
 

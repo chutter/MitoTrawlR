@@ -21,7 +21,8 @@ Imports:
         ape (>= 5.0),
         stringr (>= 1.4),
         data.table (>= 1.10),
-        Biostrings,
+        Biostrings
+Suggests:
         ggtree,
         ggplot2,
         aplot,
