@@ -119,6 +119,7 @@ MitoTrawlR::mitochondrialCapture(
 MitoTrawlR::annotateMitoContigs(
   contig.folder  = .contigs,
   reference.name = .ref.dir,
+  output.dir     = .annot,
   blast.path     = blast.path,
   tRNAscan.path  = tRNAscan.path,
   cap3.path      = cap3.path,
@@ -137,6 +138,7 @@ MitoTrawlR::annotateMitoContigs(
 MitoTrawlR::markerAlignment(
   input.folder   = file.path(.annot, "sample-markers"),
   reference.name = .ref.dir,
+  output.dir     = file.path(.adir, "Alignments"),
   threads        = threads,
   mafft.path     = mafft.path,
   max.distance   = max.alignment.distance,

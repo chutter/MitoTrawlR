@@ -59,6 +59,7 @@
 #Annotates mitochondrial contigs
 annotateMitoContigs = function(contig.folder = NULL,
                                reference.name = "reference",
+                               output.dir = "Annotations",
                                blast.path = NULL,
                                tRNAscan.path = NULL,
                                cap3.path = NULL,
@@ -99,32 +100,32 @@ annotateMitoContigs = function(contig.folder = NULL,
   } else { cap3.path = "" }
 
   #Checks for output directories
-  if (dir.exists("Annotations") == FALSE) {
-    dir.create("Annotations")
+  if (dir.exists(output.dir) == FALSE) {
+    dir.create(output.dir)
   } else if (overwrite == TRUE) {
-    unlink("Annotations", recursive = TRUE)
-    dir.create("Annotations")
+    unlink(output.dir, recursive = TRUE)
+    dir.create(output.dir)
   } else { message("Annotations directory already exists and overwrite = FALSE. Skipping."); return(invisible(NULL)) }
 
-  if (dir.exists("Annotations/sample-contigs") == FALSE) {
-    dir.create("Annotations/sample-contigs")
+  if (dir.exists(paste0(output.dir, "/sample-contigs")) == FALSE) {
+    dir.create(paste0(output.dir, "/sample-contigs"))
   } else if (overwrite == TRUE) {
-    unlink("Annotations/sample-contigs", recursive = TRUE)
-    dir.create("Annotations/sample-contigs")
+    unlink(paste0(output.dir, "/sample-contigs"), recursive = TRUE)
+    dir.create(paste0(output.dir, "/sample-contigs"))
   }#end dir exists
 
-  if (dir.exists("Annotations/sample-markers") == FALSE) {
-    dir.create("Annotations/sample-markers")
+  if (dir.exists(paste0(output.dir, "/sample-markers")) == FALSE) {
+    dir.create(paste0(output.dir, "/sample-markers"))
   } else if (overwrite == TRUE) {
-    unlink("Annotations/sample-markers", recursive = TRUE)
-    dir.create("Annotations/sample-markers")
+    unlink(paste0(output.dir, "/sample-markers"), recursive = TRUE)
+    dir.create(paste0(output.dir, "/sample-markers"))
   }#end dir exists
 
-  if (dir.exists("Annotations/sample-summary") == FALSE) {
-    dir.create("Annotations/sample-summary")
+  if (dir.exists(paste0(output.dir, "/sample-summary")) == FALSE) {
+    dir.create(paste0(output.dir, "/sample-summary"))
   } else if (overwrite == TRUE) {
-    unlink("Annotations/sample-summary", recursive = TRUE)
-    dir.create("Annotations/sample-summary")
+    unlink(paste0(output.dir, "/sample-summary"), recursive = TRUE)
+    dir.create(paste0(output.dir, "/sample-summary"))
   }#end dir exists
 
   #Obtains samples
@@ -559,7 +560,7 @@ annotateMitoContigs = function(contig.folder = NULL,
     final.sample = final.sample[order(final.sample$contig, final.sample$start),]
 
     ### Writes the CSV summary
-    write.csv(final.sample, file = paste0("Annotations/sample-summary/", spp.samples[i], "_sample-summary.csv"),
+    write.csv(final.sample, file = paste0(output.dir, "/sample-summary/", spp.samples[i], "_sample-summary.csv"),
               row.names = FALSE)
 
     ### Optionally writes GFF3 annotation
@@ -579,7 +580,7 @@ annotateMitoContigs = function(contig.folder = NULL,
         attributes = paste0("ID=", final.sample$name, ";Name=", final.sample$name),
         stringsAsFactors = FALSE
       )
-      gff.file = paste0("Annotations/sample-summary/", spp.samples[i], "_annotation.gff3")
+      gff.file = paste0(output.dir, "/sample-summary/", spp.samples[i], "_annotation.gff3")
       writeLines("##gff-version 3", gff.file)
       write.table(gff.rows, file = gff.file, sep = "\t", quote = FALSE,
                   row.names = FALSE, col.names = FALSE, append = TRUE)
@@ -590,13 +591,13 @@ annotateMitoContigs = function(contig.folder = NULL,
     good.data = good.data[order(names(good.data))]
     write.loci = as.list(as.character(good.data))
     PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
-               paste0("Annotations/sample-markers/", spp.samples[i], "_sampleMarkers.fa"), nbchar = 1000000, as.string = TRUE)
+               paste0(output.dir, "/sample-markers/", spp.samples[i], "_sampleMarkers.fa"), nbchar = 1000000, as.string = TRUE)
 
     #Writes the original assembly contigs used in annotation
     good.contigs = contigs[names(contigs) %in% unique(good.match$qName)]
     write.loci = as.list(as.character(good.contigs))
     PhyloProcessR::writeFasta(sequences = write.loci, names = names(write.loci),
-               paste0("Annotations/sample-contigs/", spp.samples[i], "_sampleContigs.fa"), nbchar = 1000000, as.string = TRUE)
+               paste0(output.dir, "/sample-contigs/", spp.samples[i], "_sampleContigs.fa"), nbchar = 1000000, as.string = TRUE)
 
     message("Finished annotation for ", spp.samples[i])
 

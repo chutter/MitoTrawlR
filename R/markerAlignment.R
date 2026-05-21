@@ -47,6 +47,7 @@
 #Aligns all the different markers
 markerAlignment = function(input.folder = NULL,
                            reference.name = NULL,
+                           output.dir = "Alignments",
                            threads = 1,
                            mafft.path = NULL,
                            max.distance = 0.40,
@@ -69,31 +70,31 @@ markerAlignment = function(input.folder = NULL,
   } else { mafft.path = "" }
 
   #Checks for overwrite
-  if (dir.exists("Alignments") == FALSE) {
-    dir.create("Alignments")
+  if (dir.exists(output.dir) == FALSE) {
+    dir.create(output.dir)
   } else if (overwrite == TRUE) {
-    unlink("Alignments", recursive = TRUE)
-    dir.create("Alignments")
+    unlink(output.dir, recursive = TRUE)
+    dir.create(output.dir)
   } else { message("Alignments directory already exists and overwrite = FALSE. Skipping."); return(invisible(NULL)) }
 
-  if (dir.exists("Alignments/untrimmed-alignments") == FALSE) {
-    dir.create("Alignments/untrimmed-alignments")
+  if (dir.exists(paste0(output.dir, "/untrimmed-alignments")) == FALSE) {
+    dir.create(paste0(output.dir, "/untrimmed-alignments"))
   } else if (overwrite == TRUE) {
-    unlink("Alignments/untrimmed-alignments", recursive = TRUE)
-    dir.create("Alignments/untrimmed-alignments")
+    unlink(paste0(output.dir, "/untrimmed-alignments"), recursive = TRUE)
+    dir.create(paste0(output.dir, "/untrimmed-alignments"))
   }#end dir exists
 
-  if (dir.exists("Alignments/unaligned-markers") == FALSE) {
-    dir.create("Alignments/unaligned-markers")
+  if (dir.exists(paste0(output.dir, "/unaligned-markers")) == FALSE) {
+    dir.create(paste0(output.dir, "/unaligned-markers"))
   } else if (overwrite == TRUE) {
-    unlink("Alignments/unaligned-markers", recursive = TRUE)
-    dir.create("Alignments/unaligned-markers")
+    unlink(paste0(output.dir, "/unaligned-markers"), recursive = TRUE)
+    dir.create(paste0(output.dir, "/unaligned-markers"))
   }#end dir exists
 
   # Helper: run MAFFT on a named marker, read result, fix orientation, rename
   run.mafft = function(marker.name) {
-    in.fa  = paste0("Alignments/unaligned-markers/", marker.name, ".fa")
-    out.fa = paste0("Alignments/unaligned-markers/", marker.name, "_align.fa")
+    in.fa  = paste0(output.dir, "/unaligned-markers/", marker.name, ".fa")
+    out.fa = paste0(output.dir, "/unaligned-markers/", marker.name, "_align.fa")
     system(paste0(mafft.path, "mafft --localpair --maxiterate 1000 --adjustdirection --quiet --op 3 --ep 0.123",
                   " --thread ", threads, " ", in.fa, " > ", out.fa))
     aln = Biostrings::readDNAStringSet(out.fa)
@@ -140,7 +141,7 @@ markerAlignment = function(input.folder = NULL,
     final.save = as.list(as.character(align.data))
 
     PhyloProcessR::writeFasta(sequences = final.save, names = names(final.save),
-               paste0("Alignments/unaligned-markers/", names(ref.data)[i], ".fa"), nbchar = 1000000, as.string = TRUE)
+               paste0(output.dir, "/unaligned-markers/", names(ref.data)[i], ".fa"), nbchar = 1000000, as.string = TRUE)
 
     ##############
     # STEP 2: Run MAFFT and filter divergent sequences
@@ -163,7 +164,7 @@ markerAlignment = function(input.folder = NULL,
     if (length(good.seqs) != length(alignment)){
       final.save = as.list(as.character(rem.align))
       PhyloProcessR::writeFasta(sequences = final.save, names = names(final.save),
-                           paste0("Alignments/unaligned-markers/", names(ref.data)[i], ".fa"), nbchar = 1000000, as.string = TRUE)
+                           paste0(output.dir, "/unaligned-markers/", names(ref.data)[i], ".fa"), nbchar = 1000000, as.string = TRUE)
       alignment = run.mafft(names(ref.data)[i])
       rem.align = alignment[!duplicated(names(alignment))]
     }
@@ -201,8 +202,8 @@ markerAlignment = function(input.folder = NULL,
     }#end x loop
 
     aligned.set = as.matrix(ape::as.DNAbin(align.list))
-    PhyloProcessR::writePhylip(aligned.set, file = paste0("Alignments/untrimmed-alignments/", names(ref.data)[i], ".phy"), interleave = FALSE)
-    file.remove(paste0("Alignments/unaligned-markers/", names(ref.data)[i], "_align.fa"))
+    PhyloProcessR::writePhylip(aligned.set, file = paste0(output.dir, "/untrimmed-alignments/", names(ref.data)[i], ".phy"), interleave = FALSE)
+    file.remove(paste0(output.dir, "/unaligned-markers/", names(ref.data)[i], "_align.fa"))
 
   }#end i loop
 
