@@ -79,7 +79,7 @@ plotMitoGenomes = function(tree.file = NULL,
                            height = 10,
                            tip.label.size = 2,
                            col.label.size = 6,
-                           tree.width = 0.35,
+                           tree.width = 0.50,
                            outgroup = NULL,
                            show.marker.types = TRUE,
                            color.complete = "steelblue4",
@@ -279,18 +279,20 @@ plotMitoGenomes = function(tree.file = NULL,
         plot.margin      = ggplot2::margin(0, 5, 0, 0)
       )
 
-    # Stack type strip above heatmap, place tree to the left
-    heat.col   = p.type / p.heat +
-      patchwork::plot_layout(heights = c(0.05, 0.95))
+    # Stack heatmap above type strip, place tree to the left
+    heat.col   = p.heat / p.type +
+      patchwork::plot_layout(heights = c(0.95, 0.05))
     final.plot = (p.tree | heat.col) +
       patchwork::plot_layout(widths = c(tree.width, 1 - tree.width),
-                             guides = "keep")
+                             guides = "collect") &
+      ggplot2::theme(legend.position = "bottom")
 
   } else {
 
     final.plot = (p.tree | p.heat) +
       patchwork::plot_layout(widths = c(tree.width, 1 - tree.width),
-                             guides = "keep")
+                             guides = "collect") &
+      ggplot2::theme(legend.position = "bottom")
 
   }
 
