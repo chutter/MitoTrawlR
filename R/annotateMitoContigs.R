@@ -154,16 +154,18 @@ annotateMitoContigs = function(contig.folder = NULL,
                   " -num_threads ", threads),
            ignore.stdout = quiet, ignore.stderr = quiet)
 
-    if (!file.exists(paste0(spp.samples[i], "_match.txt"))){
-      message(spp.samples[i], ": BLAST output not found, skipping.")
+    match.file = paste0(spp.samples[i], "_match.txt")
+    if (!file.exists(match.file) || file.info(match.file)$size == 0){
+      message(spp.samples[i], ": no matching mitochondrial genes were found.")
+      if (file.exists(match.file)) file.remove(match.file)
       next
     }
 
-    match.data = data.table::fread(paste0(spp.samples[i], "_match.txt"), sep = "\t", header = FALSE, stringsAsFactors = FALSE)
+    match.data = data.table::fread(match.file, sep = "\t", header = FALSE, stringsAsFactors = FALSE)
     colnames(match.data) = headers
     if (nrow(match.data) == 0){
       message(spp.samples[i], ": no matching mitochondrial genes were found.")
-      file.remove(paste0(spp.samples[i], "_match.txt"))
+      file.remove(match.file)
       next
     }#end if
 
