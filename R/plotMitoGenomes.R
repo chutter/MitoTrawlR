@@ -158,7 +158,8 @@ plotMitoGenomes = function(tree.file = NULL,
   }
 
   # Strip numeric prefix for display: "003_CDS_ND1" -> "ND1"
-  col.short = gsub("^[0-9]+_[^_]+_", "", colnames(comp.mat))
+  # make.unique handles duplicate short names (e.g. two tRNA-Leu)
+  col.short = make.unique(gsub("^[0-9]+_[^_]+_", "", colnames(comp.mat)))
   colnames(comp.mat) = col.short
 
   ##############################################################################
@@ -213,7 +214,7 @@ plotMitoGenomes = function(tree.file = NULL,
   ##############################################################################
   if (show.marker.types && !is.null(feature.table) && file.exists(feature.table)){
 
-    feat = utils::read.table(feature.table, sep = "\t", header = TRUE,
+    feat = utils::read.table(feature.table, header = TRUE,
                              stringsAsFactors = FALSE)
     feat$label = gsub("^[0-9]+_[^_]+_", "", feat$Marker)
     feat$type  = gsub("^[0-9]+_([^_]+)_.*", "\\1", feat$Marker)
