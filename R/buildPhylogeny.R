@@ -116,7 +116,7 @@ buildPhylogeny = function(alignment.file = NULL,
 
   if (partition.scheme != "auto"){
 
-    feat = read.table(feature.table, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+    feat = read.table(feature.table, header = TRUE, stringsAsFactors = FALSE)
 
     part.lines = character(0)
 
