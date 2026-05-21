@@ -166,7 +166,7 @@ plotMitoGenomes = function(tree.file = NULL,
   # Step 3: Build tree panel
   ##############################################################################
   p.tree = ggtree::ggtree(tree, ladderize = FALSE) +
-    ggtree::geom_tiplab(align = TRUE, linesize = 0.2, size = tip.label.size) +
+    ggtree::geom_tiplab(align = TRUE, linewidth = 0.2, size = tip.label.size) +
     ggplot2::theme(plot.margin = ggplot2::margin(5, 0, 5, 5))
 
   # Extract tip plotting order (bottom to top as drawn)
