@@ -52,6 +52,16 @@
 #' @param blast.path path to the directory containing the BLAST executables.
 #'   NULL uses the system PATH.
 #'
+#' @param max.seed.contigs maximum number of contigs to carry in the seed at
+#'   the end of each iteration. After BLAST filtering and deduplication the
+#'   longest contigs are kept up to this limit, preventing unbounded growth.
+#'   Default 30.
+#'
+#' @param min.blast.coverage minimum fraction (0--1) of a contig that must be
+#'   covered by BLAST hits for it to be retained as on-target. Contigs with
+#'   sparser matches (e.g. long NUMTs with a single short hit) are discarded.
+#'   Default 0.25.
+#'
 #' @param quiet logical; if TRUE, external tool screen output is suppressed.
 #'
 #' @return A \code{DNAStringSet} of assembled contigs, or an empty
@@ -90,6 +100,8 @@ iterativeAssemble = function(input.reads = NULL,
                              bbmap.path = NULL,
                              cap3.path = NULL,
                              blast.path = NULL,
+                             max.seed.contigs = 30,
+                             min.blast.coverage = 0.25,
                              quiet = TRUE) {
 
   # #Debug
@@ -262,15 +274,16 @@ iterativeAssemble = function(input.reads = NULL,
                                              cap3.path = cap3.path)
     }
 
-    #Always remove contigs with no match to the reference
+    #Remove contigs with insufficient BLAST coverage against the reference
     combined.contigs = removeOffTarget(target = reference,
                                        contigs = combined.contigs,
                                        blast.path = blast.path,
                                        threads = threads,
                                        quiet = TRUE,
-                                       remove.bad = FALSE)
+                                       remove.bad = FALSE,
+                                       min.coverage = min.blast.coverage)
 
-    #Once we have enough length, keep only the best-matching contig
+    #Once we have enough length, keep only the single best-matching contig
     if (length(combined.contigs) > 0 &&
         max(Biostrings::width(combined.contigs)) >= min.length){
       combined.contigs = removeOffTarget(target = reference,
@@ -297,6 +310,14 @@ iterativeAssemble = function(input.reads = NULL,
         names(combined.contigs) = paste0("seq", seq_along(combined.contigs))
       }
       file.remove(c("iterative_temp/dedup_in.fa", "iterative_temp/dedup_out.fa"))
+    }
+
+    #Hard cap: keep only the longest max.seed.contigs contigs for the next seed
+    if (length(combined.contigs) > max.seed.contigs) {
+      keep.idx = order(Biostrings::width(combined.contigs), decreasing = TRUE)[1:max.seed.contigs]
+      combined.contigs = combined.contigs[keep.idx]
+      names(combined.contigs) = paste0("seq", seq_along(combined.contigs))
+      message("Seed capped at ", max.seed.contigs, " contigs.")
     }
 
     # Check for circularity: only when we have a single contig >= min.length

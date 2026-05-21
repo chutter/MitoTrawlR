@@ -19,6 +19,12 @@
 #' @param remove.bad logical; if TRUE, keep only the single contig with the
 #'   most total BLAST match bases; if FALSE, keep all contigs with any match.
 #'
+#' @param min.coverage minimum fraction of a contig's length that must be
+#'   covered by BLAST hits (summed) for the contig to be retained when
+#'   \code{remove.bad = FALSE}. For example, \code{0.25} requires at least
+#'   25\% of the contig to have a BLAST match. Default 0 keeps any contig
+#'   with any hit (original behaviour).
+#'
 #' @param quiet logical; if TRUE, BLAST screen output is suppressed.
 #'
 #' @return A \code{DNAStringSet} containing the filtered contigs.
@@ -42,6 +48,7 @@ removeOffTarget = function(target = NULL,
                            blast.path = NULL,
                            threads = 1,
                            remove.bad = FALSE,
+                           min.coverage = 0,
                            quiet = TRUE) {
 
   if (!is.null(blast.path)){
@@ -85,14 +92,26 @@ removeOffTarget = function(target = NULL,
 
   if (nrow(match.data) == 0){ return(contigs) }
 
+  # Summarise total BLAST-matched bases per contig
+  temp.agg = aggregate(match.data$matches,
+                       by   = list(contig = match.data$qName),
+                       FUN  = sum)
+  colnames(temp.agg) = c("contig", "total.matches")
+
+  # Attach query length (first occurrence per contig is sufficient)
+  qlen.map = match.data[!duplicated(match.data$qName), c("qName", "qLen")]
+  colnames(qlen.map) = c("contig", "qLen")
+  temp.agg = merge(temp.agg, qlen.map, by = "contig")
+  temp.agg$coverage = temp.agg$total.matches / temp.agg$qLen
+
   if (remove.bad){
-    temp.data = data.frame(contig = match.data$qName, matches = match.data$matches)
-    temp.agg  = aggregate(temp.data$matches, by = list(temp.data$contig), FUN = "sum")
-    colnames(temp.agg) = c("contig", "length")
-    temp.agg  = temp.agg[temp.agg$length %in% max(temp.agg$length), ]
-    save.contigs = contigs[names(contigs) %in% temp.agg$contig]
+    # Keep only the single contig with the most total BLAST match bases
+    best = temp.agg[which.max(temp.agg$total.matches), "contig"]
+    save.contigs = contigs[names(contigs) %in% best]
   } else {
-    save.contigs = contigs[names(contigs) %in% match.data$qName]
+    # Keep all contigs whose BLAST coverage meets the minimum threshold
+    pass = temp.agg[temp.agg$coverage >= min.coverage, "contig"]
+    save.contigs = contigs[names(contigs) %in% pass]
   }
 
   return(save.contigs)
