@@ -122,7 +122,7 @@ buildMitogenomes = function(annotation.dir = "Annotations",
     sample.align = gen.align[names(gen.align) %in% sample.names[i]]
     stand.order = as.character(sample.align)
     PhyloProcessR::writeFasta(sequences = as.list(stand.order), names = names(stand.order),
-               paste0("MitoGenomes/reference-order/", sample.names[i], "_referenceOrder.fa"),
+               paste0(genome.dir, "/reference-order/", sample.names[i], "_referenceOrder.fa"),
                nbchar = 1000000, as.string = TRUE)
 
     ##################################
