@@ -331,7 +331,8 @@ plotGenomeComparison = function(annotation.dir = "Annotations",
   # Step 6: Save
   ##############################################################################
   ggplot2::ggsave(out.path, plot = p,
-                  width = width, height = height, units = "in", dpi = 300)
+                  width = width, height = height, units = "in", dpi = 300,
+                  limitsize = FALSE)
   message("Plot saved: ", out.path)
 
   return(invisible(p))
