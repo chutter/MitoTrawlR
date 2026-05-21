@@ -134,13 +134,15 @@ buildPhylogeny = function(alignment.file = NULL,
       label = gsub("[^A-Za-z0-9]", "_", label)
 
       if (partition.scheme == "codon" && type == "CDS"){
-        # Codon positions 1+2 grouped; position 3 separate
-        pos12.label = paste0(label, "_pos12")
-        pos3.label  = paste0(label, "_pos3")
+        # One charset per codon position; MFP+MERGE will merge pos1+pos2 if appropriate
+        pos1.label = paste0(label, "_pos1")
+        pos2.label = paste0(label, "_pos2")
+        pos3.label = paste0(label, "_pos3")
         charset.lines = c(charset.lines,
-          paste0("  charset ", pos12.label, " = ", start, "-", end, "\\3 ", (start + 1), "-", end, "\\3;"),
-          paste0("  charset ", pos3.label,  " = ", (start + 2), "-", end, "\\3;"))
-        partition.names = c(partition.names, pos12.label, pos3.label)
+          paste0("  charset ", pos1.label, " = ", start,       "-", end, "\\3;"),
+          paste0("  charset ", pos2.label, " = ", (start + 1), "-", end, "\\3;"),
+          paste0("  charset ", pos3.label, " = ", (start + 2), "-", end, "\\3;"))
+        partition.names = c(partition.names, pos1.label, pos2.label, pos3.label)
       } else {
         # Single partition for tRNA, rRNA, D_loop, or byMarker scheme
         charset.lines = c(charset.lines,
