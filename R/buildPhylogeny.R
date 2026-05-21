@@ -118,13 +118,12 @@ buildPhylogeny = function(alignment.file = NULL,
 
     feat = read.table(feature.table, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 
-    charset.lines  = character(0)
-    partition.names = character(0)
+    part.lines = character(0)
 
     for (i in seq_len(nrow(feat))){
       marker = feat$Marker[i]
-      start  = feat$Start[i]
-      end    = feat$End[i]
+      start  = as.integer(feat$Start[i])
+      end    = as.integer(feat$End[i])
 
       # Parse functional type from NNN_type_name format
       type = gsub("^[0-9]+_([^_]+)_.*", "\\1", marker)
@@ -134,34 +133,27 @@ buildPhylogeny = function(alignment.file = NULL,
       label = gsub("[^A-Za-z0-9]", "_", label)
 
       if (partition.scheme == "codon" && type == "CDS"){
-        # One charset per codon position; MFP+MERGE will merge pos1+pos2 if appropriate
-        pos1.label = paste0(label, "_pos1")
-        pos2.label = paste0(label, "_pos2")
-        pos3.label = paste0(label, "_pos3")
-        charset.lines = c(charset.lines,
-          paste0("  charset ", pos1.label, " = ", start,       "-", end, "\\3;"),
-          paste0("  charset ", pos2.label, " = ", (start + 1), "-", end, "\\3;"),
-          paste0("  charset ", pos3.label, " = ", (start + 2), "-", end, "\\3;"))
-        partition.names = c(partition.names, pos1.label, pos2.label, pos3.label)
+        # Three partitions per CDS gene (one per codon position)
+        # Listed as individual sites to avoid stride-notation compatibility issues
+        len = end - start + 1
+        s1 = seq(start,     end, by = 3)
+        s2 = seq(start + 1, end, by = 3)
+        s3 = seq(start + 2, end, by = 3)
+        part.lines = c(part.lines,
+          paste0("DNA, ", label, "_pos1 = ", paste(s1, collapse = ", ")),
+          paste0("DNA, ", label, "_pos2 = ", paste(s2, collapse = ", ")),
+          paste0("DNA, ", label, "_pos3 = ", paste(s3, collapse = ", ")))
       } else {
-        # Single partition for tRNA, rRNA, D_loop, or byMarker scheme
-        charset.lines = c(charset.lines,
-          paste0("  charset ", label, " = ", start, "-", end, ";"))
-        partition.names = c(partition.names, label)
+        # Single partition per marker (tRNA, rRNA, D-loop, or byMarker scheme)
+        part.lines = c(part.lines,
+          paste0("DNA, ", label, " = ", start, "-", end))
       }
     }#end for
 
-    nexus.lines = c(
-      "#nexus",
-      "begin sets;",
-      charset.lines,
-      "end;"
-    )
-
-    partition.file = paste0(output.dir, "/", dataset.name, "_partitions.nex")
-    writeLines(nexus.lines, con = partition.file)
+    partition.file = paste0(output.dir, "/", dataset.name, "_partitions.txt")
+    writeLines(part.lines, con = partition.file)
     message("Partition file written: ", partition.file,
-            " (", length(partition.names), " partitions)")
+            " (", length(part.lines), " partitions)")
 
   }#end partition build
 
