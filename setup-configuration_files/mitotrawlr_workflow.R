@@ -233,6 +233,11 @@ if (run.build.mitogenomes) {
 if (run.phylogeny) {
 
   .phylo.set = if (run.trim.alignments && phylo.dataset == "trimmed") "trimmed" else "untrimmed"
+  if (.phylo.set == "trimmed" &&
+      !file.exists(file.path(.genomes, "alignments", "trimmed_mitogenome_alignment.phy"))) {
+    message("Trimmed alignment not found, falling back to untrimmed.")
+    .phylo.set = "untrimmed"
+  }
 
   MitoTrawlR::buildPhylogeny(
     alignment.file   = file.path(.genomes, "alignments", paste0(.phylo.set, "_mitogenome_alignment.phy")),
@@ -255,6 +260,11 @@ if (run.phylogeny) {
 if (run.plot.tree) {
 
   .phylo.set = if (run.trim.alignments && phylo.dataset == "trimmed") "trimmed" else "untrimmed"
+  if (.phylo.set == "trimmed" &&
+      !file.exists(file.path(.genomes, "alignments", "trimmed_mitogenome_alignment.phy"))) {
+    message("Trimmed alignment not found, falling back to untrimmed.")
+    .phylo.set = "untrimmed"
+  }
 
   MitoTrawlR::plotMitoGenomes(
     tree.file         = file.path(.phylo, paste0(dataset.name, ".treefile")),
