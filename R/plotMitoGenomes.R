@@ -167,7 +167,8 @@ plotMitoGenomes = function(tree.file = NULL,
   ##############################################################################
   p.tree = ggtree::ggtree(tree, ladderize = FALSE) +
     ggtree::geom_tiplab(size = tip.label.size) +
-    ggplot2::theme(plot.margin = ggplot2::margin(5, 0, 5, 5))
+    ggplot2::theme(plot.margin = ggplot2::margin(5, 0, 5, 5),
+                   legend.position = "none")
 
   # Extract tip plotting order (bottom to top as drawn)
   tip.order = rev(ggtree::get_taxa_name(p.tree))
