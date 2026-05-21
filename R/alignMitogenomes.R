@@ -198,7 +198,7 @@ alignMitogenomes = function(alignment.folder = NULL,
 
   write.genome = as.matrix(ape::as.DNAbin(draft.genome))
   PhyloProcessR::writePhylip(write.genome, file = paste0(output.dir, "/alignments/", dataset.name, "_mitogenome_alignment.phy"), interleave = FALSE)
-  write.table(feature.data, file = paste0(output.dir, "/alignments/", dataset.name, "_alignment_feature_table.txt"), row.names = FALSE, quote = FALSE)
+  write.table(feature.data, file = paste0(output.dir, "/alignments/", dataset.name, "_alignment_feature_table.txt"), sep = "\t", row.names = FALSE, quote = FALSE)
 
   return(invisible(NULL))
 
