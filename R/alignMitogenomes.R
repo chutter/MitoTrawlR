@@ -72,21 +72,20 @@ alignMitogenomes = function(alignment.folder = NULL,
     }#end if
   } else { mafft.path = "" }
 
-  if (dir.exists(output.dir) == FALSE) {
-    dir.create(output.dir)
-  } else if (overwrite == TRUE) {
-    unlink(output.dir, recursive = TRUE)
-    dir.create(output.dir)
-  } else {
-    message("Output directory '", output.dir, "' already exists and overwrite = FALSE. Skipping."); return(invisible(NULL))
+  # Guard on the specific output file for this dataset, not the directory.
+  # This allows untrimmed and trimmed to share the same output.dir safely.
+  out.align = file.path(output.dir, "alignments", paste0(dataset.name, "_mitogenome_alignment.phy"))
+  if (file.exists(out.align) && overwrite == FALSE) {
+    message("Alignment '", out.align, "' already exists and overwrite = FALSE. Skipping.")
+    return(invisible(NULL))
+  }
+  if (file.exists(out.align) && overwrite == TRUE) {
+    file.remove(out.align)
   }
 
-  if (dir.exists(paste0(output.dir, "/logs")) == FALSE) {
-    dir.create(paste0(output.dir, "/logs"))
-  } else if (overwrite == TRUE) {
-    unlink(paste0(output.dir, "/logs"), recursive = TRUE)
-    dir.create(paste0(output.dir, "/logs"))
-  }
+  dir.create(output.dir, showWarnings = FALSE)
+  dir.create(file.path(output.dir, "logs"),       showWarnings = FALSE)
+  dir.create(file.path(output.dir, "alignments"), showWarnings = FALSE)
 
   #Gets the samples
   locus.names = list.files(alignment.folder)
@@ -94,9 +93,7 @@ alignMitogenomes = function(alignment.folder = NULL,
   sample.names = list.files(draft.contigs)
   sample.names = gsub(".fa$", "", sample.names)
 
-  #Create new directories
-  if (dir.exists(paste0(output.dir, "/alignments")) == FALSE) { dir.create(paste0(output.dir, "/alignments")) }
-  if (dir.exists(paste0(output.dir, "/sample-genomes")) == FALSE) { dir.create(paste0(output.dir, "/sample-genomes")) }
+  dir.create(file.path(output.dir, "sample-genomes"), showWarnings = FALSE)
 
   #Sets up the loci to align
   ref.data = Biostrings::readDNAStringSet(paste0(reference.name, "/refMarkers.fa"))

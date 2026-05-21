@@ -100,14 +100,14 @@ buildPhylogeny = function(alignment.file = NULL,
     }
   } else { iqtree.path = "" }
 
-  if (dir.exists(output.dir) == FALSE) {
-    dir.create(output.dir, recursive = TRUE)
-  } else if (overwrite == TRUE) {
-    unlink(output.dir, recursive = TRUE)
-    dir.create(output.dir, recursive = TRUE)
-  } else {
-    message("Output directory '", output.dir, "' already exists and overwrite = FALSE. Skipping."); return(invisible(NULL))
+  # Guard on the treefile, not the directory, so the function can be re-run
+  # with a different dataset.name into the same output directory.
+  out.tree = file.path(output.dir, paste0(dataset.name, ".treefile"))
+  if (file.exists(out.tree) && overwrite == FALSE) {
+    message("Tree file '", out.tree, "' already exists and overwrite = FALSE. Skipping.")
+    return(invisible(NULL))
   }
+  dir.create(output.dir, recursive = TRUE, showWarnings = FALSE)
 
   ##############################################################################
   # Build partition file
