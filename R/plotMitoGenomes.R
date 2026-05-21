@@ -167,6 +167,8 @@ plotMitoGenomes = function(tree.file = NULL,
   ##############################################################################
   p.tree = ggtree::ggtree(tree, ladderize = FALSE) +
     ggtree::geom_tiplab(size = tip.label.size) +
+    ggplot2::guides(colour = "none", fill = "none", alpha = "none",
+                    size = "none", shape = "none", linetype = "none") +
     ggplot2::theme(plot.margin = ggplot2::margin(5, 0, 5, 5),
                    legend.position = "none")
 
