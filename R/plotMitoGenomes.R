@@ -94,7 +94,7 @@ plotMitoGenomes = function(tree.file = NULL,
   # outgroup      = NULL
   # show.marker.types = TRUE
 
-  for (pkg in c("ggplot2", "ggtree", "aplot", "scales")) {
+  for (pkg in c("ggplot2", "ggtree", "patchwork", "scales")) {
     if (!requireNamespace(pkg, quietly = TRUE))
       stop("Package '", pkg, "' is required for plotMitoGenomes(). Install it with: install.packages('", pkg, "')")
   }
@@ -163,19 +163,49 @@ plotMitoGenomes = function(tree.file = NULL,
   colnames(comp.mat) = col.short
 
   ##############################################################################
-  # Step 3: Build tree panel
+  # Step 3: Build tree panel (pure ggplot2 – ggtree used for layout data only)
+  # Rendering with ggtree layers triggers an incompatibility with ggplot2 >= 3.5
+  # where ggtree's old S3 guide objects crash the new R6 guide-build system.
   ##############################################################################
-  p.tree = ggtree::ggtree(tree, ladderize = FALSE) +
-    ggtree::geom_tiplab(size = tip.label.size) +
-    ggplot2::guides(colour = "none", fill = "none", alpha = "none",
-                    size = "none", shape = "none", linetype = "none") +
-    ggplot2::theme(plot.margin = ggplot2::margin(5, 0, 5, 5),
-                   legend.position = "none")
+  p.tree.gt = ggtree::ggtree(tree, ladderize = FALSE)   # object only, never rendered
+  td        = p.tree.gt$data
+  tip.data  = td[td$isTip, ]
+  n.tips    = nrow(tip.data)
 
-  # Extract tip plotting order (bottom to top as drawn)
-  tip.order = rev(ggtree::get_taxa_name(p.tree))
-  plot.tips = tip.order[tip.order %in% rownames(comp.mat)]
+  # Numeric y per tip (y=1 at bottom, y=n at top) – used to align heatmap rows
+  tip.y.map = stats::setNames(tip.data$y, tip.data$label)
+  # Tips in bottom-to-top order for subsetting comp.mat
+  plot.tips = tip.data$label[order(tip.data$y)]
+  plot.tips = plot.tips[plot.tips %in% rownames(comp.mat)]
   comp.mat  = comp.mat[plot.tips, , drop = FALSE]
+
+  # Horizontal branch segments
+  edge.df = td[!is.na(td$parent) & td$node != td$parent & !is.na(td$branch), ]
+  h.segs  = data.frame(x    = edge.df$branch, xend = edge.df$x,
+                        y    = edge.df$y,      yend = edge.df$y)
+
+  # Vertical segments at each internal node connecting its children's y range
+  int.nodes = unique(td$parent[!is.na(td$parent) & td$node != td$parent])
+  v.list    = lapply(int.nodes, function(p) {
+    nx = td$x[td$node == p]
+    ch = td[!is.na(td$parent) & td$parent == p & td$node != p, ]
+    if (length(nx) == 0 || nrow(ch) < 2) return(NULL)
+    data.frame(x = nx[1], xend = nx[1], y = min(ch$y), yend = max(ch$y))
+  })
+  v.segs   = do.call(rbind, Filter(Negate(is.null), v.list))
+  all.segs = rbind(h.segs, v.segs)
+
+  p.tree = ggplot2::ggplot() +
+    ggplot2::geom_segment(data = all.segs,
+      ggplot2::aes(x = x, y = y, xend = xend, yend = yend),
+      colour = "black", linewidth = 0.4) +
+    ggplot2::geom_text(data = tip.data,
+      ggplot2::aes(x = x, y = y, label = label),
+      hjust = -0.1, size = tip.label.size) +
+    ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0.02, 0.5))) +
+    ggplot2::scale_y_continuous(limits = c(0.5, n.tips + 0.5), expand = c(0, 0)) +
+    ggplot2::theme_void() +
+    ggplot2::theme(plot.margin = ggplot2::margin(5, 0, 5, 5))
 
   ##############################################################################
   # Step 4: Build completeness heatmap panel
@@ -186,11 +216,12 @@ plotMitoGenomes = function(tree.file = NULL,
     Completeness = as.vector(comp.mat),
     stringsAsFactors = FALSE
   )
-  comp.long$Sample = factor(comp.long$Sample, levels = plot.tips)
+  # Use same numeric y as the tree for pixel-perfect row alignment
+  comp.long$y_num = tip.y.map[comp.long$Sample]
   comp.long$Marker = factor(comp.long$Marker, levels = colnames(comp.mat))
 
   p.heat = ggplot2::ggplot(comp.long,
-                           ggplot2::aes(x = Marker, y = Sample, fill = Completeness)) +
+                           ggplot2::aes(x = Marker, y = y_num, fill = Completeness)) +
     ggplot2::geom_tile(color = "grey85", linewidth = 0.1) +
     ggplot2::scale_fill_gradient(name = "Completeness",
                                  low  = color.missing,
@@ -198,7 +229,8 @@ plotMitoGenomes = function(tree.file = NULL,
                                  limits = c(0, 1),
                                  labels = scales::percent_format(accuracy = 1)) +
     ggplot2::scale_x_discrete(position = "top") +
-    ggplot2::scale_y_discrete(limits = plot.tips) +
+    ggplot2::scale_y_continuous(limits = c(0.5, n.tips + 0.5), expand = c(0, 0),
+                                 breaks = NULL) +
     ggplot2::theme_minimal() +
     ggplot2::theme(
       axis.text.x  = ggplot2::element_text(angle = -55, hjust = 1, vjust = 0.5,
@@ -247,13 +279,18 @@ plotMitoGenomes = function(tree.file = NULL,
         plot.margin      = ggplot2::margin(0, 5, 0, 0)
       )
 
-    # Stack the type strip above the completeness heatmap, then place tree left
-    p.heat.with.type = aplot::insert_top(p.heat, p.type, height = 0.04)
-    final.plot = aplot::insert_left(p.heat.with.type, p.tree, width = tree.width)
+    # Stack type strip above heatmap, place tree to the left
+    heat.col   = p.type / p.heat +
+      patchwork::plot_layout(heights = c(0.05, 0.95))
+    final.plot = (p.tree | heat.col) +
+      patchwork::plot_layout(widths = c(tree.width, 1 - tree.width),
+                             guides = "keep")
 
   } else {
 
-    final.plot = aplot::insert_left(p.heat, p.tree, width = tree.width)
+    final.plot = (p.tree | p.heat) +
+      patchwork::plot_layout(widths = c(tree.width, 1 - tree.width),
+                             guides = "keep")
 
   }
 

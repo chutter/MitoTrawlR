@@ -25,6 +25,6 @@ Imports:
 Suggests:
         ggtree,
         ggplot2,
-        aplot,
+        patchwork,
         scales,
         gggenomes
