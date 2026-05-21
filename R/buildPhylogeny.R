@@ -182,6 +182,7 @@ buildPhylogeny = function(alignment.file = NULL,
   iqtree.cmd = paste(
     paste0(iqtree.path, "iqtree3"),
     input.flag,
+    "-st DNA",
     model.flag,
     boot.flag,
     paste0("-T ", threads),
