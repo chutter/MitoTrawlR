@@ -153,9 +153,6 @@ buildPhylogeny = function(alignment.file = NULL,
       "#nexus",
       "begin sets;",
       charset.lines,
-      paste0("  partition MyPartition = ", length(partition.names), ": ",
-             paste(partition.names, collapse = ", "), ";"),
-      "  set partition = MyPartition;",
       "end;"
     )
 
