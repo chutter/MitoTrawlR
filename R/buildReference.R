@@ -78,7 +78,8 @@ buildReference = function(reference.fasta = NULL,
     unlink(reference.name, recursive = TRUE)
     dir.create(reference.name)
   } else {
-    stop("overwrite = FALSE and output directory '", reference.name, "' already exists.")
+    message("Reference directory '", reference.name, "' already exists and overwrite = FALSE. Skipping.")
+    return(invisible(NULL))
   }
 
 

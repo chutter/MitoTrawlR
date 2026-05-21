@@ -78,7 +78,7 @@ alignMitogenomes = function(alignment.folder = NULL,
     unlink(output.dir, recursive = TRUE)
     dir.create(output.dir)
   } else {
-    stop("overwrite is FALSE and output directory '", output.dir, "' already exists.")
+    message("Output directory '", output.dir, "' already exists and overwrite = FALSE. Skipping."); return(invisible(NULL))
   }
 
   if (dir.exists(paste0(output.dir, "/logs")) == FALSE) {

@@ -104,7 +104,7 @@ annotateMitoContigs = function(contig.folder = NULL,
   } else if (overwrite == TRUE) {
     unlink("Annotations", recursive = TRUE)
     dir.create("Annotations")
-  } else { stop("overwrite is FALSE and Annotations directory exists. Exiting.") }
+  } else { message("Annotations directory already exists and overwrite = FALSE. Skipping."); return(invisible(NULL)) }
 
   if (dir.exists("Annotations/sample-contigs") == FALSE) {
     dir.create("Annotations/sample-contigs")

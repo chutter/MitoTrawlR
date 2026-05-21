@@ -74,7 +74,7 @@ markerAlignment = function(input.folder = NULL,
   } else if (overwrite == TRUE) {
     unlink("Alignments", recursive = TRUE)
     dir.create("Alignments")
-  } else { stop("overwrite is FALSE and Alignments directory exists. Exiting.") }
+  } else { message("Alignments directory already exists and overwrite = FALSE. Skipping."); return(invisible(NULL)) }
 
   if (dir.exists("Alignments/untrimmed-alignments") == FALSE) {
     dir.create("Alignments/untrimmed-alignments")

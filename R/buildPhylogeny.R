@@ -106,7 +106,7 @@ buildPhylogeny = function(alignment.file = NULL,
     unlink(output.dir, recursive = TRUE)
     dir.create(output.dir, recursive = TRUE)
   } else {
-    stop("overwrite is FALSE and output directory '", output.dir, "' already exists.")
+    message("Output directory '", output.dir, "' already exists and overwrite = FALSE. Skipping."); return(invisible(NULL))
   }
 
   ##############################################################################

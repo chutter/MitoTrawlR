@@ -55,7 +55,7 @@ prepareAlignments = function(contig.folder = NULL,
   } else if (overwrite) {
     unlink("Alignments", recursive = TRUE)
     dir.create("Alignments")
-  } else { stop("overwrite is FALSE and Alignments directory exists. Exiting.") }
+  } else { message("Alignments directory already exists and overwrite = FALSE. Skipping."); return(invisible(NULL)) }
 
   if (dir.exists("Alignments/sample-fastas") == FALSE) {
     dir.create("Alignments/sample-fastas")

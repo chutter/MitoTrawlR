@@ -63,7 +63,7 @@ tRNAscanBatch = function(genome.dir = NULL,
   } else if (overwrite) {
     unlink(out.dir, recursive = TRUE)
     dir.create(out.dir)
-  } else { stop("overwrite is FALSE and output directory exists. Exiting.") }
+  } else { message("Output directory already exists and overwrite = FALSE. Skipping."); return(invisible(NULL)) }
 
   if (organism.type == "eukaryotic"){ org.string = "-E" }
   if (organism.type == "vertebrate"){ org.string = "-M vert" }
