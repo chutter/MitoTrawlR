@@ -226,7 +226,7 @@ iterativeAssemble = function(input.reads = NULL,
                                threads = threads,
                                memory = memory)
 
-    spades.contigs = spades.contigs[Biostrings::width(spades.contigs) >= 100]
+    spades.contigs = spades.contigs[Biostrings::width(spades.contigs) >= 200]
 
     #If SPAdes produced contigs, merge with accumulated; otherwise fall back to raw reads via CAP3
     if (length(spades.contigs) > 0) {
@@ -262,18 +262,17 @@ iterativeAssemble = function(input.reads = NULL,
                                              cap3.path = cap3.path)
     }
 
-    #Blasts and remvoes stuff that doesn't match to reference
-    if (length(combined.contigs) >= 2){
-      combined.contigs = removeOffTarget(target = reference,
-                                         contigs = combined.contigs,
-                                         blast.path = blast.path,
-                                         threads = threads,
-                                         quiet = TRUE,
-                                         remove.bad = FALSE)
-    }#end if
+    #Always remove contigs with no match to the reference
+    combined.contigs = removeOffTarget(target = reference,
+                                       contigs = combined.contigs,
+                                       blast.path = blast.path,
+                                       threads = threads,
+                                       quiet = TRUE,
+                                       remove.bad = FALSE)
 
-    #Removes even more off target bad matches
-    if (max(Biostrings::width(combined.contigs)) >= min.length){
+    #Once we have enough length, keep only the best-matching contig
+    if (length(combined.contigs) > 0 &&
+        max(Biostrings::width(combined.contigs)) >= min.length){
       combined.contigs = removeOffTarget(target = reference,
                                          contigs = combined.contigs,
                                          blast.path = blast.path,
@@ -281,6 +280,24 @@ iterativeAssemble = function(input.reads = NULL,
                                          quiet = TRUE,
                                          remove.bad = TRUE)
     }#end if
+
+    #Collapse near-identical / contained contigs to keep the seed manageable
+    if (length(combined.contigs) > 1) {
+      write.loci = as.list(as.character(combined.contigs))
+      PhyloProcessR::writeFasta(sequences = write.loci, names = names(combined.contigs),
+                           "iterative_temp/dedup_in.fa", nbchar = 1000000, as.string = TRUE)
+      system(paste0(bbmap.path, "dedupe.sh -Xmx", memory, "g",
+                    " in=iterative_temp/dedup_in.fa",
+                    " out=iterative_temp/dedup_out.fa",
+                    " minidentity=97 absorbcontainment=t"),
+             ignore.stdout = quiet, ignore.stderr = quiet)
+      if (file.exists("iterative_temp/dedup_out.fa") &&
+          file.info("iterative_temp/dedup_out.fa")$size > 0) {
+        combined.contigs = Biostrings::readDNAStringSet("iterative_temp/dedup_out.fa")
+        names(combined.contigs) = paste0("seq", seq_along(combined.contigs))
+      }
+      file.remove(c("iterative_temp/dedup_in.fa", "iterative_temp/dedup_out.fa"))
+    }
 
     # Check for circularity: only when we have a single contig >= min.length
     # and have run at least min.iterations rounds. A circular genome cannot
